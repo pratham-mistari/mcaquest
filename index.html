@@ -1093,14 +1093,14 @@
                     <input type="time" id="settings-blinkit-time" value="07:30" class="settings-input">
 
                     <label
-                        style="display: block; margin-top: 16px; margin-bottom: 8px; color: var(--text-secondary); font-size: 14px;">Gemini
+                        style="display: block; margin-top: 16px; margin-bottom: 8px; color: var(--text-secondary); font-size: 14px;">Groq
                         API Key</label>
                     <div style="display: flex; gap: 8px;">
-                        <input type="password" id="settings-gemini-key" placeholder="AI Coach Key"
-                            class="settings-input" style="flex: 1;">
+                        <input type="password" id="settings-groq-key" placeholder="AI Coach Key" class="settings-input"
+                            style="flex: 1;">
                         <button class="btn-primary"
                             style="padding: 0 12px; background: var(--bg-surface-alt); border: 1px solid var(--border-main); color: var(--text-primary);"
-                            onclick="togglePassword('settings-gemini-key')">👁</button>
+                            onclick="togglePassword('settings-groq-key')">👁</button>
                     </div>
 
                     <label
@@ -1123,14 +1123,16 @@
 
                 <!-- Exam Centers -->
                 <h4 style="margin-top: 32px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                    <span>🏛️</span> Exam Centers</h4>
+                    <span>🏛️</span> Exam Centers
+                </h4>
                 <div class="block-card" id="settings-exams-container">
                     <!-- Injected by JS -->
                 </div>
 
                 <!-- Schedule Management -->
                 <h4 style="margin-top: 32px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                    <span>📅</span> Schedule Import</h4>
+                    <span>📅</span> Schedule Import
+                </h4>
                 <div class="block-card">
                     <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px;">Upload a .docx file
                         with "Month X" and "Week Y" headings to map your quest map.</p>
@@ -1142,7 +1144,8 @@
 
                 <!-- Data Management -->
                 <h4 style="margin-top: 32px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                    <span>💾</span> Data Backup</h4>
+                    <span>💾</span> Data Backup
+                </h4>
                 <div class="block-card">
                     <button class="btn-primary"
                         style="width: 100%; margin-bottom: 12px; background: var(--bg-surface-alt); border: 1px solid var(--accent-magic); color: var(--accent-magic);"
@@ -1430,7 +1433,7 @@
     <script>
         // CONFIG Block
         const CONFIG = {
-            GEMINI_KEY: 'YOUR_GEMINI_API_KEY',
+            GROQ_KEY: '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',
             TELEGRAM_TOKEN: 'YOUR_TELEGRAM_BOT_TOKEN',
             TELEGRAM_CHAT_ID: 'YOUR_TELEGRAM_CHAT_ID',
             DB_KEY: 'mcaquest_v1'
@@ -1654,7 +1657,7 @@
 
             // Sync CONFIG with saved settings
             if (db.settings) {
-                if (db.settings.geminiKey) CONFIG.GEMINI_KEY = db.settings.geminiKey;
+                if (db.settings.groqKey) CONFIG.GROQ_KEY = db.settings.groqKey;
                 if (db.settings.tgToken) CONFIG.TELEGRAM_TOKEN = db.settings.tgToken;
                 if (db.settings.tgChatId) CONFIG.TELEGRAM_CHAT_ID = db.settings.tgChatId;
             }
@@ -1974,7 +1977,7 @@
         }
 
         window.pendingQuizData = null;
-        async function fetchGeminiWithRetry(url, options) {
+        async function fetchWithRetry(url, options) {
             let res = await fetch(url, options);
             if (res.status === 429) {
                 console.warn("429 Too Many Requests. Retrying in 5 seconds...");
@@ -2012,22 +2015,27 @@
                 promptText += `Provide exactly 10 questions. Return ONLY a valid JSON array of objects with this structure: [{"q": "Question text", "options": ["A","B","C","D"], "answer": "The exact string from options that is correct", "difficulty": "easy", "explanation": "Why this is correct"}]. Provide 'easy', 'medium', or 'hard' difficulty appropriately. Format as clean JSON.`;
 
                 // Dummy configuration placeholder if real key isn't provided
-                if (!CONFIG || !CONFIG.GEMINI_KEY || CONFIG.GEMINI_KEY.includes('GEMINI_API_KEY')) {
+                if (!CONFIG || !CONFIG.GROQ_KEY || CONFIG.GROQ_KEY.includes('YOUR_GROQ_API_KEY')) {
                     throw new Error("Missing API Key");
                 }
 
-                const res = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${CONFIG.GEMINI_KEY}`, {
+                const res = await fetchWithRetry('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + CONFIG.GROQ_KEY
+                    },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: promptText }] }]
+                        model: 'llama-3.1-8b-instant',
+                        messages: [{ role: 'user', content: promptText }],
+                        max_tokens: 1000
                     })
                 });
 
                 if (!res.ok) throw new Error("API call failed");
 
                 const data = await res.json();
-                const jsonStr = data.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
+                const jsonStr = data.choices[0].message.content.replace(/```json/g, '').replace(/```/g, '').trim();
                 window.pendingQuizData = JSON.parse(jsonStr);
                 console.log("Quiz data generated successfully!");
             } catch (err) {
@@ -3037,15 +3045,22 @@
                 const topic = window.currentWeakTopic || "General";
                 let prompt = `I am a student preparing for my MCA entrance exams. My weakest topic right now is ${topic}. Give me a 3-step action plan in Hinglish to improve it. Keep it very short, bullet points, max 100 words. Speak like an RPG mentor.`;
 
-                const response = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${CONFIG.GEMINI_KEY}`, {
+                const response = await fetchWithRetry('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + CONFIG.GROQ_KEY
+                    },
+                    body: JSON.stringify({
+                        model: 'llama-3.1-8b-instant',
+                        messages: [{ role: 'user', content: prompt }],
+                        max_tokens: 1000
+                    })
                 });
 
                 if (response.ok) {
                     const data = await response.json();
-                    const text = data.candidates[0].content.parts[0].text;
+                    const text = data.choices[0].message.content;
                     alert("🧙 Mentor Says:nn" + text);
                 }
             } catch (e) {
@@ -3079,23 +3094,30 @@
             input.value = '';
             chatCont.scrollTop = chatCont.scrollHeight;
 
-            // Call Gemini
+            // Call Groq
             try {
                 let db = loadDB();
                 let xp = db ? db.player.xp : 0;
                 let sysPrompt = `You are an RPG AI Coach for an MCA entrance exam student. The student has ${xp} XP. Respond to their message in Hinglish. Be extremely encouraging, use RPG terms (quests, level up, grinding). Max 50 words.`;
 
-                const response = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${CONFIG.GEMINI_KEY}`, {
+                const response = await fetchWithRetry('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: sysPrompt + "\\nStudent says: " + msg }] }] })
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + CONFIG.GROQ_KEY
+                    },
+                    body: JSON.stringify({
+                        model: 'llama-3.1-8b-instant',
+                        messages: [{ role: 'user', content: sysPrompt + "\\nStudent says: " + msg }],
+                        max_tokens: 1000
+                    })
                 });
 
                 document.getElementById(loadingBubbleId).remove();
 
                 if (response.ok) {
                     const data = await response.json();
-                    const text = data.candidates[0].content.parts[0].text;
+                    const text = data.choices[0].message.content;
                     chatCont.innerHTML += `<div class="ai-chat-bubble coach">${text}</div>`;
                     chatCont.scrollTop = chatCont.scrollHeight;
                 }
@@ -3113,10 +3135,10 @@
             if (!db) return;
 
             // Preferences
-            if (!db.settings) db.settings = { focusMode: false, theme: "dark", blinkitTime: "07:30", geminiKey: "", tgToken: "", tgChatId: "" };
+            if (!db.settings) db.settings = { focusMode: false, theme: "dark", blinkitTime: "07:30", groqKey: "", tgToken: "", tgChatId: "" };
 
             document.getElementById('settings-blinkit-time').value = db.settings.blinkitTime || "07:30";
-            document.getElementById('settings-gemini-key').value = db.settings.geminiKey || "";
+            document.getElementById('settings-groq-key').value = db.settings.groqKey || "";
             document.getElementById('settings-tg-token').value = db.settings.tgToken || "";
             document.getElementById('settings-tg-chatid').value = db.settings.tgChatId || "";
 
@@ -3159,12 +3181,12 @@
 
             if (!db.settings) db.settings = {};
             db.settings.blinkitTime = document.getElementById('settings-blinkit-time').value;
-            db.settings.geminiKey = document.getElementById('settings-gemini-key').value;
+            db.settings.groqKey = document.getElementById('settings-groq-key').value;
             db.settings.tgToken = document.getElementById('settings-tg-token').value;
             db.settings.tgChatId = document.getElementById('settings-tg-chatid').value;
 
             // Update live config
-            CONFIG.GEMINI_KEY = db.settings.geminiKey || 'YOUR_GEMINI_API_KEY';
+            CONFIG.GROQ_KEY = db.settings.groqKey || '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';
             CONFIG.TELEGRAM_TOKEN = db.settings.tgToken || 'YOUR_TELEGRAM_BOT_TOKEN';
             CONFIG.TELEGRAM_CHAT_ID = db.settings.tgChatId || 'YOUR_TELEGRAM_CHAT_ID';
 
