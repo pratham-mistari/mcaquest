@@ -1,0 +1,3731 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RPG App Shell</title>
+
+    <!-- Requested CDNs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        /* Dark RPG theme CSS variables */
+        :root {
+            --bg-base: #121212;
+            --bg-surface: #1e1e24;
+            --bg-surface-alt: #2a2a35;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent-primary: #d4af37;
+            --accent-danger: #8b0000;
+            --accent-magic: #4a90e2;
+            --accent-success: #4caf50;
+            --border-main: #3d3d4e;
+
+            --nav-bg: #141418;
+            --nav-inactive: #666677;
+
+            /* Requested Reference Variables */
+            --bg-primary: #0f0f1a;
+            --accent-gold: #f5a623;
+
+            --nav-active: var(--accent-gold);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-primary);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            font-size: 15px;
+            /* Minimum font size 15px */
+        }
+
+        /* Mobile-first layout, max-width 430px, centered */
+        #app-container {
+            width: 100%;
+            max-width: 430px;
+            background-color: var(--bg-primary);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            border-left: 1px solid var(--border-main);
+            border-right: 1px solid var(--border-main);
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+        }
+
+        /* Content area per tab */
+        #content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            padding-bottom: 80px;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 5-tab bottom navigation bar (fixed) */
+        #bottom-nav {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 65px;
+            background-color: var(--nav-bg);
+            border-top: 1px solid var(--border-main);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 20%;
+            height: 100%;
+            min-height: 44px;
+            /* Minimum touch target */
+            min-width: 44px;
+            cursor: pointer;
+            color: var(--nav-inactive);
+            font-size: 15px;
+            /* Minimum font size */
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.2s ease;
+        }
+
+        .nav-item.active {
+            color: var(--nav-active);
+        }
+
+        .nav-icon {
+            font-size: 22px;
+            margin-bottom: 4px;
+            transition: transform 0.2s ease;
+        }
+
+        .nav-item.active .nav-icon {
+            transform: scale(1.1);
+            text-shadow: 0 0 10px rgba(245, 166, 35, 0.5);
+        }
+
+        /* Required Component Classes */
+        .block-card {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-main);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-primary {
+            background-color: var(--accent-gold);
+            color: #000;
+            border: none;
+            border-radius: 4px;
+            padding: 12px 20px;
+            font-size: 16px;
+            /* >15px */
+            font-weight: bold;
+            cursor: pointer;
+            min-height: 44px;
+            /* Minimum touch target */
+            min-width: 44px;
+            text-transform: uppercase;
+            transition: background-color 0.2s, transform 0.1s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: var(--bg-surface-alt);
+            border: 2px solid var(--accent-gold);
+            border-radius: 12px;
+            padding: 24px;
+            z-index: 2000;
+            width: 90%;
+            max-width: 380px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
+            display: none;
+        }
+
+        .modal.active {
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 12px;
+            background-color: #222;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid var(--border-main);
+        }
+
+        .progress-bar .fill {
+            height: 100%;
+            background-color: var(--accent-magic);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .stat-bar {
+            width: 100%;
+            height: 8px;
+            background-color: #111;
+            border-radius: 4px;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+
+        .stat-bar .fill {
+            height: 100%;
+            background-color: var(--accent-success);
+            width: 0%;
+        }
+
+        .badge {
+            display: inline-block;
+            background-color: var(--accent-danger);
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 15px;
+            /* Minimum font size */
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        /* Timer Screen Styles */
+        .timer-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 300px;
+            text-align: center;
+        }
+
+        .timer-display {
+            font-size: 64px;
+            font-weight: bold;
+            color: var(--accent-gold);
+            text-shadow: 0 0 15px rgba(245, 166, 35, 0.4);
+            margin: 20px 0;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .timer-controls {
+            display: flex;
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        /* Locked Day Overlay (Blur + Padlock) */
+        .locked-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 15, 26, 0.7);
+            /* Based on --bg-primary */
+            backdrop-filter: blur(4px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            color: var(--text-secondary);
+            border-radius: inherit;
+        }
+
+        .locked-overlay .padlock {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        /* Confetti Animation (Pure CSS) */
+        .confetti-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 3000;
+            overflow: hidden;
+            display: none;
+        }
+
+        .confetti-container.active {
+            display: block;
+        }
+
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: var(--accent-gold);
+            top: -10px;
+            animation: confetti-fall 3s linear forwards;
+        }
+
+        .confetti:nth-child(2n) {
+            background-color: var(--accent-magic);
+        }
+
+        .confetti:nth-child(3n) {
+            background-color: var(--accent-danger);
+        }
+
+        .confetti:nth-child(4n) {
+            background-color: var(--accent-success);
+        }
+
+        @keyframes confetti-fall {
+            0% {
+                transform: translateY(0) rotate(0deg);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateY(100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        /* XP Bar Animation */
+        .xp-bar {
+            width: 100%;
+            height: 16px;
+            background-color: #222;
+            border-radius: 8px;
+            border: 2px solid var(--accent-gold);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .xp-bar .fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-gold), #fff7d6);
+            width: 0%;
+        }
+
+        .xp-bar.animate .fill {
+            animation: xp-fill 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+
+        @keyframes xp-fill {
+            from {
+                width: 0%;
+            }
+        }
+
+        /* Level-Up Flash Overlay */
+        .level-up-flash {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #fff;
+            pointer-events: none;
+            z-index: 4000;
+            opacity: 0;
+        }
+
+        .level-up-flash.trigger {
+            animation: flash-animation 1s ease-out forwards;
+        }
+
+        @keyframes flash-animation {
+            0% {
+                opacity: 0.8;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        /* Pomodoro Break Overlay */
+        .pomodoro-break-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(74, 144, 226, 0.9);
+            /* var(--accent-magic) based */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1500;
+            backdrop-filter: blur(8px);
+            color: #fff;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+
+        .pomodoro-break-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Focus Mode Dimming */
+        .focus-mode-dim {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            z-index: 900;
+            /* Below nav and modals, above normal content */
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+
+        .focus-mode-dim.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .sub-nav {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+
+        .sub-nav-btn {
+            background: var(--bg-surface-alt);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-main);
+            padding: 8px 16px;
+            border-radius: 20px;
+            white-space: nowrap;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .sub-nav-btn.active {
+            background: var(--accent-gold);
+            color: #000;
+            border-color: var(--accent-gold);
+            font-weight: bold;
+        }
+
+        .sub-tab-content {
+            display: none;
+        }
+
+        .sub-tab-content.active {
+            display: block;
+        }
+
+        select.filter-select {
+            background: var(--bg-surface-alt);
+            color: var(--text-primary);
+            border: 1px solid var(--border-main);
+            padding: 8px 12px;
+            border-radius: 6px;
+            width: 100%;
+            margin-bottom: 16px;
+        }
+
+        /* Stats Tab CSS */
+        .svg-ring-container {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            margin: 0 auto 24px auto;
+        }
+
+        .svg-ring-bg {
+            fill: none;
+            stroke: var(--bg-surface-alt);
+            stroke-width: 8;
+        }
+
+        .svg-ring-fill {
+            fill: none;
+            stroke: var(--accent-gold);
+            stroke-width: 8;
+            stroke-linecap: round;
+            stroke-dasharray: 408.4;
+            stroke-dashoffset: 408.4;
+            transition: stroke-dashoffset 1s ease-out;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        .svg-ring-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .rpg-stat {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .rpg-stat-label {
+            width: 50px;
+            font-weight: bold;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .rpg-stat-bar-container {
+            flex: 1;
+            height: 12px;
+            background: var(--bg-surface-alt);
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 0 12px;
+        }
+
+        .rpg-stat-fill {
+            height: 100%;
+            background: var(--accent-gold);
+            transition: width 1s ease;
+        }
+
+        .achievements-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 16px;
+            text-align: center;
+        }
+
+        .achievement-badge {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 8px auto;
+            border-radius: 50%;
+            background: var(--bg-surface-alt);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            transition: all 0.3s;
+            opacity: 0.4;
+            filter: grayscale(1);
+        }
+
+        .achievement-badge.unlocked {
+            opacity: 1;
+            filter: grayscale(0);
+            box-shadow: 0 0 12px rgba(245, 166, 35, 0.5);
+            border: 2px solid var(--accent-gold);
+        }
+
+        /* AI Coach Floating Button */
+        .ai-coach-btn {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f5a623, #ff4757);
+            box-shadow: 0 4px 15px rgba(245, 166, 35, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            cursor: pointer;
+            z-index: 1000;
+            transition: transform 0.2s;
+        }
+
+        .ai-coach-btn:active {
+            transform: scale(0.9);
+        }
+
+        .ai-chat-bubble {
+            background: var(--bg-surface-alt);
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            font-size: 14px;
+            line-height: 1.4;
+            color: var(--text-primary);
+        }
+
+        .ai-chat-bubble.user {
+            background: var(--accent-gold);
+            color: #000;
+            margin-left: 32px;
+        }
+
+        .ai-chat-bubble.coach {
+            border-left: 3px solid var(--accent-magic);
+            margin-right: 32px;
+        }
+
+        .settings-input {
+            width: 100%;
+            padding: 12px;
+            background: #111;
+            color: #fff;
+            border: 1px solid var(--border-main);
+            border-radius: 4px;
+            font-size: 16px;
+            font-family: inherit;
+            box-sizing: border-box;
+        }
+
+        .settings-input:focus {
+            outline: none;
+            border-color: var(--accent-gold);
+        }
+
+        /* Flashcards */
+        .flashcard-scene {
+            width: 300px;
+            height: 400px;
+            perspective: 1000px;
+            margin: 40px auto;
+        }
+
+        .flashcard {
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .flashcard.is-flipped {
+            transform: rotateY(180deg);
+        }
+
+        .flashcard__face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            padding: 20px;
+            border-radius: 12px;
+            background: var(--bg-surface-alt);
+            border: 2px solid var(--accent-gold);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        .flashcard__face--back {
+            transform: rotateY(180deg);
+            background: var(--bg-surface);
+            border-color: var(--accent-magic);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app-container">
+        <!-- Network Status -->
+        <div id="network-status"
+            style="position: absolute; top: 12px; right: 12px; display: flex; align-items: center; gap: 6px; z-index: 1000; font-size: 12px; font-weight: bold;">
+            <div id="network-dot"
+                style="width: 10px; height: 10px; border-radius: 50%; background-color: var(--accent-success);"></div>
+            <span id="network-text" style="color: var(--accent-success);">Online</span>
+        </div>
+
+        <!-- App-wide Confetti Container -->
+        <div class="confetti-container" id="global-confetti"></div>
+        <!-- Focus Mode Dim -->
+        <div class="focus-mode-dim" id="focus-dimmer" style="z-index: 2600; pointer-events: none;"></div>
+
+        <!-- Pomodoro Break Overlay -->
+        <div class="pomodoro-break-overlay" id="pomodoro-break">
+            <h2>☕ Break Time</h2>
+            <p style="margin-bottom: 24px;">Step away from the screen.</p>
+            <h1 id="break-timer-display"
+                style="font-size: 64px; margin-bottom: 24px; font-variant-numeric: tabular-nums;">05:00</h1>
+            <button class="btn-primary" onclick="skipBreak()">Skip Break</button>
+        </div>
+
+        <!-- Session Setup Modal -->
+        <div class="modal" id="session-modal">
+            <h3 style="color: var(--accent-gold); margin-bottom: 12px;" id="session-modal-title">Start Session</h3>
+            <p id="session-modal-topic" style="margin-bottom: 16px; color: var(--text-secondary);"></p>
+            <input type="url" id="session-url" placeholder="Resource URL (optional)"
+                style="width: 100%; padding: 12px; margin-bottom: 12px; background: #111; color: #fff; border: 1px solid var(--border-main); border-radius: 4px; font-size: 14px;">
+            <textarea id="session-notes" placeholder="Initial notes or goals..."
+                style="width: 100%; height: 80px; padding: 12px; margin-bottom: 8px; background: #111; color: #fff; border: 1px solid var(--border-main); border-radius: 4px; font-size: 14px; resize: none;"></textarea>
+            <p style="font-size: 11px; color: var(--accent-magic); margin-bottom: 20px;">✨ AI will analyze your resource
+                and generate quiz</p>
+            <div style="display: flex; gap: 12px;">
+                <button class="btn-primary" style="flex: 1; background-color: var(--border-main); color: #fff;"
+                    onclick="closeSessionModal()">Cancel</button>
+                <button class="btn-primary" style="flex: 1;" onclick="startSession()">▶ Start</button>
+            </div>
+        </div>
+
+        <!-- Timer Screen Overlay -->
+        <div id="timer-screen-overlay"
+            style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--bg-base); z-index: 2500; flex-direction: column; padding: 20px;">
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; margin-top: 20px;">
+                <button class="btn-primary"
+                    style="min-width: unset; min-height: unset; padding: 8px 12px; font-size: 14px; background: transparent; border: 1px solid var(--accent-gold); color: var(--accent-gold);"
+                    onclick="toggleFocusMode()">🎯 Focus</button>
+                <div id="pomodoro-display" style="font-weight: bold; color: var(--text-secondary);">Pomodoro 1/2</div>
+            </div>
+
+            <div class="timer-screen" style="flex: 1; justify-content: center; min-height: unset;">
+                <h3 id="timer-topic-display" style="color: var(--text-primary); margin-bottom: 20px;">Topic</h3>
+                <div class="timer-display" id="main-timer-display"
+                    style="transition: color 0.5s ease; font-size: 72px;">60:00</div>
+                <div class="timer-controls">
+                    <button class="btn-primary" id="pause-resume-btn" onclick="togglePause()">Pause</button>
+                </div>
+                <button class="btn-primary" id="mark-complete-btn"
+                    style="display: none; margin-top: 40px; background-color: var(--accent-success);"
+                    onclick="endSession()">Mark Complete</button>
+            </div>
+        </div>
+
+        <!-- Padh Liya Modal -->
+        <div class="modal" id="padh-liya-modal" style="z-index: 3500;">
+            <h3 style="color: var(--accent-gold); margin-bottom: 16px;">Padh Liya?</h3>
+            <p style="margin-bottom: 24px;">Are you ready to take the quiz for this block?</p>
+            <div style="display: flex; gap: 12px;">
+                <button class="btn-primary" style="flex: 1; background-color: var(--border-main); color: #fff;"
+                    onclick="delayQuiz()">No, 5 more mins</button>
+                <button class="btn-primary" style="flex: 1;" onclick="startQuizFlow()">Yes, let's go</button>
+            </div>
+        </div>
+
+        <!-- Quiz Overlay -->
+        <div id="quiz-overlay"
+            style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--bg-base); z-index: 3000; flex-direction: column; padding: 20px;">
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; margin-top: 20px;">
+                <h3 style="color: var(--accent-magic);">Quiz Time</h3>
+                <div id="quiz-progress" style="font-weight: bold; color: var(--text-secondary);">Q 1/10</div>
+            </div>
+            <div id="quiz-content" style="flex: 1; overflow-y: auto;">
+                <h4 id="quiz-question-text" style="font-size: 18px; margin-bottom: 20px; line-height: 1.4;"></h4>
+                <div id="quiz-options-container" style="display: flex; flex-direction: column; gap: 12px;">
+                    <!-- Options injected here -->
+                </div>
+                <div id="quiz-explanation-box" class="block-card"
+                    style="display: none; margin-top: 20px; border-color: var(--accent-magic);">
+                    <h5 style="color: var(--accent-magic); margin-bottom: 8px;">Explanation</h5>
+                    <p id="quiz-explanation-text" style="font-size: 14px; color: var(--text-primary);"></p>
+                    <button class="btn-primary" id="quiz-next-btn" style="width: 100%; margin-top: 16px;"
+                        onclick="nextQuizQuestion()">Next Question</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scorecard Overlay -->
+        <div class="modal" id="scorecard-modal" style="text-align: center; z-index: 3500;">
+            <h2 id="scorecard-title" style="margin-bottom: 12px;"></h2>
+            <div id="scorecard-score" style="font-size: 48px; font-weight: bold; margin-bottom: 8px;"></div>
+            <p id="scorecard-message" style="margin-bottom: 24px; color: var(--text-secondary);"></p>
+            <button class="btn-primary" style="width: 100%;" onclick="closeScorecard()">Close Session</button>
+        </div>
+
+        <!-- Content Area -->
+        <div id="content-area">
+            <!-- Tab 1: Today -->
+            <div id="tab-1" class="tab-content active" style="position: relative;">
+                <!-- Removed Locked Overlay from here so carry-forwards remain clickable -->
+
+                <!-- Header -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <h2 style="margin: 0; color: var(--accent-gold);">Scholar</h2>
+                        <span class="badge" id="player-level-badge">Lvl 1</span>
+                        <span id="ai-analyzing-dot"
+                            style="display: none; animation: pulse 1s infinite; font-size: 12px;">🔵</span>
+                    </div>
+                    <div style="font-size: 16px; font-weight: bold;">
+                        🔥 <span id="player-streak">0</span>
+                    </div>
+                </div>
+
+                <!-- XP Bar -->
+                <div class="xp-bar" style="margin-bottom: 20px;">
+                    <div class="fill" id="player-xp-fill" style="width: 0%;"></div>
+                </div>
+
+                <!-- Date Display -->
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <h3 id="day-progress-text"
+                        style="color: var(--text-secondary); letter-spacing: 1px; text-transform: uppercase;">Day 1 of
+                        365</h3>
+                </div>
+
+                <!-- Blinkit Banner -->
+                <div id="blinkit-banner" class="block-card"
+                    style="display: none; background: linear-gradient(135deg, #fce181, #f5a623); color: #000; text-align: center; border-color: #f5a623;">
+                    <h3 style="margin-bottom: 4px;">🛒 Blinkit Restock Time!</h3>
+                    <p style="font-size: 14px; font-weight: bold;">It's 7:30 AM IST. Time to grab essentials.</p>
+                </div>
+
+                <!-- Carry Forward Section -->
+                <div id="carry-forward-section" style="display: none;">
+                    <h4
+                        style="color: var(--accent-danger); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span>📌</span> Carry Forward
+                    </h4>
+                    <div id="carry-forward-container"></div>
+                </div>
+
+                <!-- SRS Due Section -->
+                <div id="srs-due-section" style="display: none;">
+                    <h4
+                        style="color: var(--accent-magic); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span>🧠</span> SRS Due
+                    </h4>
+                    <div id="srs-due-container"></div>
+                </div>
+
+                <!-- Today's Blocks -->
+                <div id="today-blocks-section" style="position: relative;">
+                    <!-- Locked Overlay -->
+                    <div id="today-locked-overlay" class="locked-overlay"
+                        style="display: none; border-radius: 8px; z-index: 100;">
+                        <div class="padlock">🔒</div>
+                        <h3 style="color: #fff;">Day Locked</h3>
+                        <p>Complete yesterday's quests first.</p>
+                    </div>
+                    <h4
+                        style="color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span>⚔️</span> Today's Quests
+                    </h4>
+                    <div id="today-blocks-container"></div>
+                </div>
+            </div>
+
+            <!-- Tab 2 -->
+            <div id="tab-2" class="tab-content" style="padding-bottom: 80px;">
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <div
+                        style="font-size: 14px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 2px;">
+                        Overall Mastery</div>
+                    <div id="quest-map-hero-percent"
+                        style="font-size: 64px; font-weight: bold; color: var(--accent-gold); font-variant-numeric: tabular-nums;">
+                        0%</div>
+                </div>
+
+                <div class="block-card" style="margin-bottom: 24px;">
+                    <h4 style="margin-bottom: 8px;">60-Day Study Heatmap</h4>
+                    <div class="heatmap-grid" id="heatmap-container"></div>
+                    <div
+                        style="display: flex; justify-content: flex-end; gap: 4px; font-size: 12px; color: var(--text-secondary); align-items: center;">
+                        Less
+                        <div style="width: 12px; height: 12px; background: var(--bg-surface-alt); border-radius: 2px;">
+                        </div>
+                        <div style="width: 12px; height: 12px; background: #1e3a24; border-radius: 2px;"></div>
+                        <div style="width: 12px; height: 12px; background: #388a4c; border-radius: 2px;"></div>
+                        <div style="width: 12px; height: 12px; background: var(--accent-success); border-radius: 2px;">
+                        </div>
+                        More
+                    </div>
+                </div>
+
+                <h4 style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <span>📅</span> Quest Log (12 Months)
+                </h4>
+                <div id="quest-map-months-container"></div>
+
+                <h4 style="margin-top: 32px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <span>🕸️</span> Dependency Map
+                </h4>
+                <div id="dependency-map-container" style="margin-bottom: 40px;"></div>
+            </div>
+
+            <!-- Tab 3: Quiz & Exam Log -->
+            <div id="tab-3" class="tab-content" style="padding-bottom: 80px;">
+                <div class="sub-nav" id="log-sub-nav">
+                    <button class="sub-nav-btn active" onclick="switchSubTab('log-quiz', this)">Quiz History</button>
+                    <button class="sub-nav-btn" onclick="switchSubTab('log-exam', this)">Exam Scores</button>
+                    <button class="sub-nav-btn" onclick="switchSubTab('log-error', this)">Error Journal</button>
+                </div>
+
+                <!-- Sub Tab: Quiz History -->
+                <div id="log-quiz" class="sub-tab-content active">
+                    <select id="quiz-filter-subject" class="filter-select" onchange="renderQuizHistory()">
+                        <option value="All">All Subjects</option>
+                        <option value="Math">Math</option>
+                        <option value="Logic">Logic</option>
+                    </select>
+                    <div id="quiz-history-container"></div>
+                </div>
+
+                <!-- Sub Tab: Exam Scores -->
+                <div id="log-exam" class="sub-tab-content">
+                    <div class="block-card" style="margin-bottom: 24px;">
+                        <h4 style="margin-bottom: 16px;">Score Trends</h4>
+                        <canvas id="examChart" style="width: 100%; height: 200px;"></canvas>
+                    </div>
+                    <h4 style="margin-bottom: 12px;">Recent Exams</h4>
+                    <div id="exam-scores-container"></div>
+                </div>
+
+                <!-- Sub Tab: Error Journal -->
+                <div id="log-error" class="sub-tab-content">
+                    <button class="btn-primary" style="width: 100%; margin-bottom: 16px;"
+                        onclick="exportErrorJournalPDF()">Export PDF</button>
+
+                    <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                        <select id="error-filter-subject" class="filter-select" style="margin-bottom: 0;"
+                            onchange="renderErrorJournal()">
+                            <option value="All">All Subjects</option>
+                            <option value="Math">Math</option>
+                            <option value="Logic">Logic</option>
+                        </select>
+                        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                            <input type="checkbox" id="error-filter-unreviewed" checked onchange="renderErrorJournal()">
+                            Unreviewed
+                        </label>
+                    </div>
+
+                    <div id="error-journal-stats"
+                        style="margin-bottom: 16px; font-size: 14px; color: var(--text-secondary);">
+                        <!-- Stats injected here -->
+                    </div>
+
+                    <div id="error-journal-container"></div>
+                </div>
+            </div>
+
+            <!-- Tab 4: Stats & Coach -->
+            <div id="tab-4" class="tab-content" style="padding-bottom: 80px;">
+                <!-- Level Ring -->
+                <div class="svg-ring-container">
+                    <svg width="150" height="150">
+                        <circle class="svg-ring-bg" cx="75" cy="75" r="65"></circle>
+                        <circle class="svg-ring-fill" id="level-ring-fill" cx="75" cy="75" r="65"></circle>
+                    </svg>
+                    <div class="svg-ring-text">
+                        <div style="font-size: 12px; color: var(--text-secondary); text-transform: uppercase;">Scholar
+                            Lvl</div>
+                        <div id="stats-level-text"
+                            style="font-size: 36px; font-weight: bold; color: var(--accent-gold);">1</div>
+                    </div>
+                </div>
+
+                <!-- Top Stats -->
+                <div style="display: flex; justify-content: space-around; margin-bottom: 24px; text-align: center;">
+                    <div>
+                        <div style="font-size: 24px; font-weight: bold;" id="stats-total-xp">0</div>
+                        <div style="font-size: 11px; color: var(--text-secondary);">Total XP</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 24px; font-weight: bold; color: var(--accent-magic);"
+                            id="stats-study-hrs">0h</div>
+                        <div style="font-size: 11px; color: var(--text-secondary);">Study Hrs</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 24px; font-weight: bold; color: var(--accent-danger);" id="stats-debt">0
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-secondary);">Debt Blocks</div>
+                    </div>
+                </div>
+
+                <!-- RPG Stats -->
+                <div class="block-card" style="margin-bottom: 24px;">
+                    <h4 style="margin-bottom: 16px;">Attributes</h4>
+                    <div class="rpg-stat">
+                        <div class="rpg-stat-label">STR</div>
+                        <div class="rpg-stat-bar-container">
+                            <div class="rpg-stat-fill" id="stat-str-fill" style="width: 0%; background: #ff4757;"></div>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary);" id="stat-str-val">0%</div>
+                    </div>
+                    <div class="rpg-stat">
+                        <div class="rpg-stat-label">INT</div>
+                        <div class="rpg-stat-bar-container">
+                            <div class="rpg-stat-fill" id="stat-int-fill" style="width: 0%; background: #3742fa;"></div>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary);" id="stat-int-val">0%</div>
+                    </div>
+                    <div class="rpg-stat">
+                        <div class="rpg-stat-label">WIS</div>
+                        <div class="rpg-stat-bar-container">
+                            <div class="rpg-stat-fill" id="stat-wis-fill" style="width: 0%; background: #2ed573;"></div>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary);" id="stat-wis-val">0%</div>
+                    </div>
+                    <div class="rpg-stat">
+                        <div class="rpg-stat-label">AGI</div>
+                        <div class="rpg-stat-bar-container">
+                            <div class="rpg-stat-fill" id="stat-agi-fill" style="width: 0%; background: #f5a623;"></div>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary);" id="stat-agi-val">0%</div>
+                    </div>
+                </div>
+
+                <!-- SRS & Focus -->
+                <div style="display: flex; gap: 12px; margin-bottom: 24px;">
+                    <div class="block-card" style="flex: 1;">
+                        <h4 style="margin-bottom: 8px;">SRS Tracking</h4>
+                        <div style="font-size: 20px; font-weight: bold;" id="stats-srs-mastered">0/0</div>
+                        <div style="font-size: 12px; color: var(--text-secondary);">Mastered</div>
+                        <div style="margin-top: 8px; font-size: 12px; color: var(--accent-gold);" id="stats-srs-queue">
+                            Queue: 0</div>
+                    </div>
+                    <div class="block-card"
+                        style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
+                        <h4 style="margin-bottom: 8px; font-size: 14px;">Focus Areas</h4>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.3;"
+                            id="stats-weak-topics">Analyze history to find weaknesses.</div>
+                        <button class="btn-primary" style="padding: 8px; font-size: 12px;"
+                            onclick="analyzeWeakAreas()">Analyze</button>
+                    </div>
+                </div>
+
+                <!-- Exam Countdowns -->
+                <h4 style="margin-bottom: 12px;">Exam Countdowns</h4>
+                <div id="stats-exams-container"
+                    style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 24px;">
+                    <!-- Injected by JS -->
+                </div>
+
+                <!-- Achievements -->
+                <h4 style="margin-bottom: 12px;">Achievements</h4>
+                <div class="block-card">
+                    <div class="achievements-grid" id="stats-achievements-container">
+                        <!-- Injected by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 5: Settings / Menu -->
+            <div id="tab-5" class="tab-content" style="padding-bottom: 80px;">
+                <h2 style="color: var(--accent-gold); margin-bottom: 24px; text-align: center;">Settings & Data</h2>
+
+                <!-- Preferences & API -->
+                <h4 style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;"><span>⚙️</span>
+                    Preferences & API</h4>
+                <div class="block-card">
+                    <label
+                        style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 14px;">Blinkit
+                        Default Time</label>
+                    <input type="time" id="settings-blinkit-time" value="07:30" class="settings-input">
+
+                    <label
+                        style="display: block; margin-top: 16px; margin-bottom: 8px; color: var(--text-secondary); font-size: 14px;">Gemini
+                        API Key</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="password" id="settings-gemini-key" placeholder="AI Coach Key"
+                            class="settings-input" style="flex: 1;">
+                        <button class="btn-primary"
+                            style="padding: 0 12px; background: var(--bg-surface-alt); border: 1px solid var(--border-main); color: var(--text-primary);"
+                            onclick="togglePassword('settings-gemini-key')">👁</button>
+                    </div>
+
+                    <label
+                        style="display: block; margin-top: 16px; margin-bottom: 8px; color: var(--text-secondary); font-size: 14px;">Telegram
+                        Bot Token</label>
+                    <input type="password" id="settings-tg-token" placeholder="Bot Token" class="settings-input">
+
+                    <label
+                        style="display: block; margin-top: 16px; margin-bottom: 8px; color: var(--text-secondary); font-size: 14px;">Telegram
+                        Chat ID</label>
+                    <input type="text" id="settings-tg-chatid" placeholder="Chat ID" class="settings-input">
+
+                    <div style="display: flex; gap: 8px; margin-top: 20px;">
+                        <button class="btn-primary" style="flex: 1;" onclick="saveSettings()">Save Preferences</button>
+                        <button class="btn-primary" style="flex: 1; background: var(--accent-magic);"
+                            onclick="saveSettings(); sendTelegramMessage('Test from MCA Quest!'); alert('Test message sent! Check Telegram.');">Send
+                            Test Message</button>
+                    </div>
+                </div>
+
+                <!-- Exam Centers -->
+                <h4 style="margin-top: 32px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <span>🏛️</span> Exam Centers</h4>
+                <div class="block-card" id="settings-exams-container">
+                    <!-- Injected by JS -->
+                </div>
+
+                <!-- Schedule Management -->
+                <h4 style="margin-top: 32px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <span>📅</span> Schedule Import</h4>
+                <div class="block-card">
+                    <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px;">Upload a .docx file
+                        with "Month X" and "Week Y" headings to map your quest map.</p>
+                    <input type="file" id="settings-docx-upload" accept=".docx" class="settings-input"
+                        style="padding: 8px;">
+                    <button class="btn-primary" style="width: 100%; margin-top: 12px;"
+                        onclick="handleDocxUpload()">Process Schedule</button>
+                </div>
+
+                <!-- Data Management -->
+                <h4 style="margin-top: 32px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <span>💾</span> Data Backup</h4>
+                <div class="block-card">
+                    <button class="btn-primary"
+                        style="width: 100%; margin-bottom: 12px; background: var(--bg-surface-alt); border: 1px solid var(--accent-magic); color: var(--accent-magic);"
+                        onclick="exportData()">Export Save Data (JSON)</button>
+
+                    <label
+                        style="display: block; margin-top: 16px; margin-bottom: 8px; color: var(--text-secondary); font-size: 14px;">Import
+                        Save Data</label>
+                    <input type="file" id="settings-json-upload" accept=".json" class="settings-input"
+                        style="padding: 8px; margin-bottom: 12px;">
+                    <button class="btn-primary" style="width: 100%; margin-bottom: 24px;" onclick="importData()">Import
+                        & Overwrite</button>
+
+                    <button class="btn-primary" style="width: 100%; background: var(--accent-danger); color: #fff;"
+                        onclick="resetData()">Danger: Hard Reset Data</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Onboarding Overlay -->
+        <div id="onboarding-overlay"
+            style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--bg-primary); z-index: 5000; flex-direction: column; align-items: center; justify-content: center;">
+            <div class="block-card"
+                style="text-align: center; width: 90%; max-width: 380px; border-color: var(--accent-gold);">
+                <h2 style="color: var(--accent-gold); margin-bottom: 8px;">A New Journey Begins</h2>
+                <p style="margin-bottom: 20px; color: var(--text-secondary);">Confirm your quest start date:</p>
+                <input type="date" id="start-date-input" value="2026-07-06"
+                    style="width: 100%; padding: 12px; margin-bottom: 24px; background: #000; color: #fff; border: 1px solid var(--border-main); border-radius: 6px; font-size: 16px; font-family: inherit;">
+                <button class="btn-primary" style="width: 100%;" onclick="completeOnboarding()">Begin Quest</button>
+            </div>
+        </div>
+
+        <!-- Global Banner -->
+        <div id="global-banner"
+            style="display: none; background: var(--accent-gold); color: #000; padding: 12px; text-align: center; font-weight: bold; position: relative; z-index: 4000;">
+            <span id="global-banner-text"></span>
+            <button
+                style="position: absolute; right: 12px; top: 12px; background: transparent; border: none; font-weight: bold; cursor: pointer;"
+                onclick="document.getElementById('global-banner').style.display='none'">✕</button>
+        </div>
+
+        <!-- Exam Day Overlay -->
+        <div id="exam-day-overlay"
+            style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--accent-danger); z-index: 6000; flex-direction: column; align-items: center; justify-content: center; color: #fff;">
+            <h1
+                style="font-size: 48px; font-weight: bold; margin-bottom: 24px; text-shadow: 2px 2px 8px rgba(0,0,0,0.5);">
+                AAJ EXAM HAI! ⚔️</h1>
+            <h2 id="exam-day-name" style="margin-bottom: 24px;"></h2>
+            <p style="font-size: 18px; margin-bottom: 40px; text-align: center; max-width: 80%;">Go conquer your quest.
+                You have trained for this.</p>
+        </div>
+
+        <!-- Streak Milestone Modal -->
+        <div class="modal" id="streak-milestone-modal" style="z-index: 5500; text-align: center;">
+            <div style="font-size: 64px; margin-bottom: 16px;">🔥</div>
+            <h2 style="color: var(--accent-gold); margin-bottom: 12px;" id="streak-milestone-title">Streak!</h2>
+            <p style="color: var(--text-primary); margin-bottom: 24px;">You are a machine!</p>
+            <button class="btn-primary" style="width: 100%;"
+                onclick="document.getElementById('streak-milestone-modal').classList.remove('active')">Keep
+                Grinding</button>
+        </div>
+
+        <!-- Flashcard Warm-up Overlay -->
+        <div id="flashcard-overlay"
+            style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--bg-base); z-index: 3500; flex-direction: column; align-items: center; padding: 20px;">
+            <div
+                style="display: flex; justify-content: space-between; width: 100%; max-width: 400px; margin-top: 20px;">
+                <h3 style="color: var(--accent-gold);">Warm-up</h3>
+                <span id="flashcard-counter" style="color: var(--text-secondary);">1 / 5</span>
+            </div>
+
+            <div class="flashcard-scene" id="flashcard-scene">
+                <div class="flashcard" id="active-flashcard" onclick="this.classList.toggle('is-flipped')">
+                    <div class="flashcard__face flashcard__face--front">
+                        <h2 id="fc-front-text">Question</h2>
+                    </div>
+                    <div class="flashcard__face flashcard__face--back">
+                        <h2 id="fc-back-text" style="color: var(--accent-magic);">Answer</h2>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 24px; margin-top: 20px; align-items: center;">
+                <button class="btn-primary" style="background: transparent; font-size: 24px;"
+                    onclick="prevFlashcard()">⬅️</button>
+                <button class="btn-primary" style="background: transparent; font-size: 24px; color: var(--accent-gold);"
+                    onclick="starFlashcard()">⭐</button>
+                <button class="btn-primary" style="background: transparent; font-size: 24px;"
+                    onclick="nextFlashcard()">➡️</button>
+            </div>
+
+            <button class="btn-primary" style="margin-top: 40px; width: 100%; max-width: 300px;"
+                onclick="endFlashcards()">Start Session</button>
+        </div>
+
+        <!-- Buffer Exam Simulator Overlay -->
+        <div id="buffer-exam-overlay"
+            style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #f0f0f0; z-index: 7000; flex-direction: column; color: #000; font-family: 'Arial', sans-serif;">
+            <div
+                style="background: #2c3e50; color: #fff; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="font-size: 18px; font-weight: bold;">MCA Buffer Exam</div>
+                <div style="font-size: 24px; font-family: monospace;" id="exam-timer">120:00</div>
+            </div>
+
+            <div style="display: flex; flex: 1; overflow: hidden;">
+                <div style="flex: 1; padding: 24px; overflow-y: auto; background: #fff;">
+                    <div
+                        style="display: flex; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+                        <h3 id="exam-q-number">Question 1</h3>
+                        <span id="exam-subject-label"
+                            style="background: #3498db; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Math</span>
+                    </div>
+                    <p id="exam-q-text" style="font-size: 18px; margin-bottom: 24px; line-height: 1.5;"></p>
+                    <div id="exam-options-container" style="display: flex; flex-direction: column; gap: 12px;"></div>
+                </div>
+            </div>
+
+            <div
+                style="background: #ecf0f1; padding: 16px; border-top: 1px solid #bdc3c7; display: flex; justify-content: space-between;">
+                <button
+                    style="padding: 10px 16px; background: #e74c3c; color: #fff; border: none; border-radius: 4px; font-weight: bold;"
+                    onclick="markExamForReview()">Mark for Review</button>
+                <div style="display: flex; gap: 12px;">
+                    <button
+                        style="padding: 10px 16px; background: #95a5a6; color: #fff; border: none; border-radius: 4px; font-weight: bold;"
+                        onclick="prevExamQ()">Previous</button>
+                    <button
+                        style="padding: 10px 16px; background: #2ecc71; color: #fff; border: none; border-radius: 4px; font-weight: bold;"
+                        onclick="nextExamQ()">Save & Next</button>
+                </div>
+            </div>
+
+            <button
+                style="position: absolute; right: 16px; bottom: 80px; width: 50px; height: 50px; border-radius: 50%; background: #2c3e50; color: #fff; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 24px;"
+                onclick="document.getElementById('exam-palette-modal').style.display='flex'">#</button>
+        </div>
+
+        <div id="exam-palette-modal"
+            style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); z-index: 7500; flex-direction: column; align-items: center; justify-content: center; padding: 20px;">
+            <div
+                style="background: #fff; width: 100%; max-width: 400px; border-radius: 8px; padding: 20px; color: #000;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+                    <h3>Question Palette</h3>
+                    <button style="background: transparent; border: none; font-size: 20px; font-weight: bold;"
+                        onclick="document.getElementById('exam-palette-modal').style.display='none'">✕</button>
+                </div>
+                <div id="exam-palette-grid"
+                    style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; max-height: 300px; overflow-y: auto;">
+                </div>
+                <button class="btn-primary" style="width: 100%; margin-top: 24px; background: #e74c3c;"
+                    onclick="autoSubmitExam()">Submit Exam Now</button>
+            </div>
+        </div>
+
+        <!-- PDF Report Hidden Template -->
+        <div id="pdf-report-template"
+            style="display: none; position: absolute; top: -10000px; left: -10000px; width: 800px; background: #fff; color: #000; padding: 40px; font-family: Arial, sans-serif;">
+            <h1
+                style="color: #2c3e50; text-align: center; border-bottom: 2px solid #2c3e50; padding-bottom: 20px; margin-bottom: 40px;">
+                MCA Quest - Scholar Report</h1>
+
+            <div style="display: flex; justify-content: space-between; margin-bottom: 40px;">
+                <div>
+                    <h3>Scholar Info</h3>
+                    <p><strong>Name:</strong> Scholar</p>
+                    <p><strong>Level:</strong> <span id="pdf-level">1</span></p>
+                    <p><strong>Total XP:</strong> <span id="pdf-xp">0</span></p>
+                </div>
+                <div style="text-align: right;">
+                    <h3>Milestones</h3>
+                    <p><strong>Streak:</strong> <span id="pdf-streak">0</span> days</p>
+                    <p><strong>Generated:</strong> <span id="pdf-date"></span></p>
+                </div>
+            </div>
+
+            <h3 style="color: #2c3e50; margin-bottom: 20px;">Subject Proficiency</h3>
+            <div style="margin-bottom: 40px;">
+                <p>Math: <span id="pdf-math-val">0%</span></p>
+                <div style="background: #eee; width: 100%; height: 20px; margin-bottom: 12px;">
+                    <div id="pdf-math-bar" style="background: #e74c3c; height: 100%; width: 0%;"></div>
+                </div>
+
+                <p>Logic: <span id="pdf-logic-val">0%</span></p>
+                <div style="background: #eee; width: 100%; height: 20px; margin-bottom: 12px;">
+                    <div id="pdf-logic-bar" style="background: #f1c40f; height: 100%; width: 0%;"></div>
+                </div>
+
+                <p>Computer: <span id="pdf-comp-val">0%</span></p>
+                <div style="background: #eee; width: 100%; height: 20px; margin-bottom: 12px;">
+                    <div id="pdf-comp-bar" style="background: #3498db; height: 100%; width: 0%;"></div>
+                </div>
+
+                <p>English: <span id="pdf-eng-val">0%</span></p>
+                <div style="background: #eee; width: 100%; height: 20px; margin-bottom: 12px;">
+                    <div id="pdf-eng-bar" style="background: #9b59b6; height: 100%; width: 0%;"></div>
+                </div>
+            </div>
+
+            <h3 style="color: #2c3e50; margin-bottom: 20px;">Buffer Exam Summary</h3>
+            <p id="pdf-exam-summary" style="font-size: 16px; line-height: 1.6;">No exams taken yet.</p>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav id="bottom-nav">
+            <div class="nav-item active" onclick="switchTab('tab-1', this)">
+                <div class="nav-icon">⚔️</div>
+                <span>Quest</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('tab-2', this)">
+                <div class="nav-icon">🛡️</div>
+                <span>Map</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('tab-3', this)">
+                <div class="nav-icon">📜</div>
+                <span>Log</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('tab-4', this)">
+                <div class="nav-icon">🎒</div>
+                <span>Stats</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('tab-5', this)">
+                <div class="nav-icon">⚙️</div>
+                <span>Menu</span>
+            </div>
+        </nav>
+
+        <!-- Floating AI Coach Button -->
+        <div class="ai-coach-btn" onclick="openCoachModal()">🧙</div>
+    </div>
+
+    <!-- AI Coach Modal -->
+    <div class="modal" id="coach-modal">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="color: var(--accent-gold); margin: 0;">AI Coach</h3>
+            <button class="btn-primary" style="background: transparent; min-height: unset; padding: 4px; color: #fff;"
+                onclick="closeCoachModal()">✕</button>
+        </div>
+        <div id="coach-chat-container"
+            style="height: 300px; overflow-y: auto; margin-bottom: 16px; padding-right: 8px;">
+            <div class="ai-chat-bubble coach">Namaste Scholar! Aaj ka quest kaisa chal raha hai? Koi topic samajh nahi
+                aa raha toh batao.</div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <input type="text" id="coach-input" placeholder="Ask your coach..."
+                style="flex: 1; padding: 12px; background: #111; color: #fff; border: 1px solid var(--border-main); border-radius: 4px; font-size: 14px;">
+            <button class="btn-primary" style="min-width: unset; padding: 0 16px;"
+                onclick="sendCoachMessage()">▶</button>
+        </div>
+    </div>
+
+    <!-- Tab switching JS (no reload, no frameworks) -->
+    <script>
+        function switchTab(tabId, navElement) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Remove active state from all nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabId).classList.add('active');
+
+            // Set active state on clicked nav item
+            navElement.classList.add('active');
+
+            if (tabId === 'tab-2') {
+                renderQuestMap(loadDB());
+            } else if (tabId === 'tab-1') {
+                renderToday(loadDB());
+            } else if (tabId === 'tab-3') {
+                renderLogTab();
+            } else if (tabId === 'tab-4') {
+                renderStatsTab();
+            } else if (tabId === 'tab-5') {
+                renderSettingsTab();
+            }
+        }
+    </script>
+
+    <!-- Core App Logic -->
+    <script>
+        // CONFIG Block
+        const CONFIG = {
+            GEMINI_KEY: 'YOUR_GEMINI_API_KEY',
+            TELEGRAM_TOKEN: 'YOUR_TELEGRAM_BOT_TOKEN',
+            TELEGRAM_CHAT_ID: 'YOUR_TELEGRAM_CHAT_ID',
+            DB_KEY: 'mcaquest_v1'
+        };
+
+        // Complete mcaquest_v1 schema (as per spec)
+        const defaultSchema = {
+            player: {
+                name: "Scholar",
+                level: 1,
+                xp: 0,
+                gold: 0,
+                streak: 0,
+                startDate: null,
+                lastProcessedDate: null,
+                yesterdayIncomplete: false,
+                stats: {
+                    focus: 0,
+                    logic: 0,
+                    endurance: 0
+                },
+                hasCompletedOnboarding: false
+            },
+            history: {},
+            carryForward: [],
+            quests: [],
+            inventory: [],
+            logs: [],
+            settings: {
+                focusMode: false,
+                theme: "dark"
+            }
+        };
+
+        // IST Time Helper (UTC+5:30)
+        function nowIST() {
+            const now = new Date();
+            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+            return new Date(utc + (3600000 * 5.5));
+        }
+
+        function getISTDateString(dateObj) {
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function processDailyRollover(db) {
+            if (!db || !db.player.hasCompletedOnboarding) return;
+
+            const now = nowIST();
+            const todayDate = getISTDateString(now);
+
+            // Backwards compatibility patch
+            if (!db.history) db.history = {};
+            if (!db.carryForward) db.carryForward = [];
+
+            if (db.player.lastProcessedDate !== todayDate) {
+                if (db.player.lastProcessedDate) { // if not very first run
+                    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                    const yesterdayStr = getISTDateString(yesterday);
+
+                    if (db.player.startDate !== todayDate) {
+                        const isSunday = yesterday.getDay() === 0;
+                        const expectedBlocks = isSunday ? 3 : 4;
+                        const yesterdayHistory = db.history[yesterdayStr] || [];
+
+                        let yesterdayIncomplete = false;
+                        for (let i = 0; i < expectedBlocks; i++) {
+                            if (!yesterdayHistory[i]) {
+                                yesterdayIncomplete = true;
+                                const schedule = db.schedule || {};
+                                const yesterdayTopics = schedule[yesterday.getDay()] || [];
+                                const topic = yesterdayTopics[i] || `Placeholder Topic ${i + 1}`;
+
+                                db.carryForward.push({
+                                    id: `cf_${yesterdayStr}_${i}`,
+                                    topic: topic,
+                                    originalDate: yesterdayStr
+                                });
+                            }
+                        }
+                        db.player.yesterdayIncomplete = yesterdayIncomplete;
+
+                        if (!yesterdayIncomplete) {
+                            db.player.streak = (db.player.streak || 0) + 1;
+
+                            // Milestone Check
+                            const s = db.player.streak;
+                            if (s === 7 || s === 14 || s === 30 || s === 60 || s === 100) {
+                                setTimeout(() => {
+                                    document.getElementById('streak-milestone-title').innerText = `${s} Day Streak!`;
+                                    document.getElementById('streak-milestone-modal').classList.add('active');
+                                    triggerConfetti();
+                                }, 1000);
+                            }
+                        } else {
+                            db.player.streak = 0;
+                        }
+                    } else {
+                        db.player.yesterdayIncomplete = false;
+                    }
+                } else {
+                    db.player.yesterdayIncomplete = false;
+                }
+
+                db.player.lastProcessedDate = todayDate;
+                saveDB(db);
+            }
+        }
+
+        // DB Helpers
+        function loadDB() {
+            try {
+                const data = localStorage.getItem(CONFIG.DB_KEY);
+                return data ? JSON.parse(data) : null;
+            } catch (e) {
+                console.error("Failed to load DB", e);
+                return null;
+            }
+        }
+
+        function saveDB(data) {
+            try {
+                const jsonStr = JSON.stringify(data);
+                // 5MB limit check (approximate string length in JS is 2 bytes per char, so 2.5M chars = 5MB)
+                if (jsonStr.length > 2500000) {
+                    console.warn("Storage near 5MB! Compacting history...");
+                    if (data.history) {
+                        const keys = Object.keys(data.history);
+                        if (keys.length > 30) {
+                            keys.slice(0, keys.length - 30).forEach(k => delete data.history[k]);
+                        }
+                    }
+                    if (data.errorJournal && data.errorJournal.length > 100) {
+                        data.errorJournal = data.errorJournal.slice(data.errorJournal.length - 100);
+                    }
+                    return saveDB(data);
+                }
+                localStorage.setItem(CONFIG.DB_KEY, jsonStr);
+                return true;
+            } catch (e) {
+                console.error("Failed to save DB", e);
+                return false;
+            }
+        }
+
+        function showLevelUpFlash(newLevel) {
+            let overlay = document.getElementById('level-up-overlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'level-up-overlay';
+                overlay.style.position = 'fixed';
+                overlay.style.top = '0'; overlay.style.left = '0';
+                overlay.style.width = '100vw'; overlay.style.height = '100vh';
+                overlay.style.backgroundColor = 'rgba(255, 215, 0, 0.3)';
+                overlay.style.zIndex = '9999';
+                overlay.style.display = 'flex';
+                overlay.style.flexDirection = 'column';
+                overlay.style.justifyContent = 'center';
+                overlay.style.alignItems = 'center';
+                overlay.style.pointerEvents = 'none';
+
+                const text = document.createElement('h1');
+                text.style.color = '#fff';
+                text.style.textShadow = '0 0 20px #ffd700';
+                text.style.fontSize = '4rem';
+                text.style.transform = 'scale(0)';
+                text.style.animation = 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards';
+                text.id = 'level-up-text';
+
+                overlay.appendChild(text);
+                document.body.appendChild(overlay);
+
+                const style = document.createElement('style');
+                style.innerHTML = `
+                    @keyframes fadeInOut { 0% { opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+                    @keyframes popIn { to { transform: scale(1); } }
+                `;
+                document.head.appendChild(style);
+            }
+
+            document.getElementById('level-up-text').innerText = `LEVEL UP: ${newLevel}!`;
+            overlay.style.display = 'flex';
+            overlay.style.animation = 'none';
+            overlay.offsetHeight; // trigger reflow
+            overlay.style.animation = 'fadeInOut 2s forwards';
+            triggerConfetti();
+
+            setTimeout(() => { overlay.style.display = 'none'; }, 2000);
+        }
+
+        function addXP(db, amount) {
+            db.player.xp = (db.player.xp || 0) + amount;
+            let currentLevel = db.player.level || 1;
+            let xpNeeded = currentLevel * 100;
+
+            let leveledUp = false;
+            while (db.player.xp >= xpNeeded) {
+                db.player.xp -= xpNeeded;
+                db.player.level++;
+                currentLevel = db.player.level;
+                xpNeeded = currentLevel * 100;
+                leveledUp = true;
+            }
+
+            if (leveledUp) {
+                showLevelUpFlash(db.player.level);
+            }
+        }
+
+        // Initialize Local Storage
+        function initLocalStorage() {
+            let db = loadDB();
+            if (!db) {
+                console.log("Initializing new database with mcaquest_v1 schema...");
+                db = JSON.parse(JSON.stringify(defaultSchema));
+                saveDB(db);
+            }
+
+            // Sync CONFIG with saved settings
+            if (db.settings) {
+                if (db.settings.geminiKey) CONFIG.GEMINI_KEY = db.settings.geminiKey;
+                if (db.settings.tgToken) CONFIG.TELEGRAM_TOKEN = db.settings.tgToken;
+                if (db.settings.tgChatId) CONFIG.TELEGRAM_CHAT_ID = db.settings.tgChatId;
+            }
+            return db;
+        }
+
+        // Check Onboarding
+        function checkOnboarding(db) {
+            if (!db.player.hasCompletedOnboarding) {
+                console.log("Onboarding required.");
+                document.getElementById('onboarding-overlay').style.display = 'flex';
+            }
+        }
+
+        // Complete Onboarding
+        function completeOnboarding() {
+            const dateInput = document.getElementById('start-date-input').value;
+            let db = loadDB();
+            if (db) {
+                db.player.startDate = dateInput || '2026-07-01';
+                db.player.hasCompletedOnboarding = true;
+                saveDB(db);
+
+                document.getElementById('onboarding-overlay').style.display = 'none';
+
+                // Go to TODAY tab directly (tab-1)
+                switchTab('tab-1', document.querySelector('#bottom-nav .nav-item:nth-child(1)'));
+                renderToday(db);
+            }
+        }
+
+        // Render Today
+        function renderToday(db) {
+            console.log("Rendering today's view...");
+            if (!db || !db.player) return;
+
+            // Header Stats
+            document.getElementById('player-level-badge').innerText = `Lvl ${db.player.level || 1}`;
+            document.getElementById('player-streak').innerText = db.player.streak || 0;
+
+            // Calculate XP percentage
+            const currentLevelXpMax = (db.player.level || 1) * 100;
+            const xpPercent = Math.min(100, ((db.player.xp || 0) / currentLevelXpMax) * 100);
+            document.getElementById('player-xp-fill').style.width = `${xpPercent}%`;
+
+            // Calculate Day X of 365
+            if (db.player.startDate) {
+                const start = new Date(db.player.startDate);
+                const now = nowIST();
+                const diffTime = now.getTime() - start.getTime();
+                const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+                document.getElementById('day-progress-text').innerText = `Day ${diffDays} of 365`;
+            }
+
+            // Blinkit Banner (shows at 7:30 AM IST)
+            const now = nowIST();
+            if (now.getHours() === 7 && now.getMinutes() >= 30 && now.getMinutes() <= 59) {
+                const blinkitBanner = document.getElementById('blinkit-banner');
+                blinkitBanner.style.display = 'block';
+                blinkitBanner.innerHTML = `
+                    <h3 style="margin-bottom: 8px;">🛒 Aaj Blinkit duty hai?</h3>
+                    <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 8px;">
+                        <button class="btn-primary" style="background-color: var(--accent-success); border: none;" onclick="BlinkitYes()">Yes</button>
+                        <button class="btn-primary" style="background-color: var(--accent-danger); border: none;" onclick="BlinkitNo()">No</button>
+                    </div>
+                    <div id="blinkit-late-section" style="display: none; margin-top: 8px;">
+                        <button class="btn-primary" style="width: 100%; background: var(--bg-surface); color: var(--text-primary); font-size: 14px;" onclick="BlinkitLate()">Late aaya? Adjust time</button>
+                    </div>
+                `;
+            } else {
+                document.getElementById('blinkit-banner').style.display = 'none';
+            }
+
+            // Locked Day overlay
+            if (db.player.yesterdayIncomplete) {
+                document.getElementById('today-locked-overlay').style.display = 'flex';
+            } else {
+                document.getElementById('today-locked-overlay').style.display = 'none';
+            }
+
+            // Render SRS Due Section
+            const srsContainer = document.getElementById('srs-due-container');
+            const srsSection = document.getElementById('srs-due-section');
+            if (srsContainer && srsSection) {
+                let srsList = [];
+                try { srsList = JSON.parse(localStorage.getItem('mcaquest_srs')) || []; } catch (e) { }
+
+                const todayStr = getISTDateString(now);
+                const dueSrs = srsList.filter(item => item.nextReviewDate <= todayStr && item.level < 5);
+
+                if (dueSrs.length > 0) {
+                    srsSection.style.display = 'block';
+                    srsContainer.innerHTML = '';
+                    dueSrs.forEach(item => {
+                        const card = document.createElement('div');
+                        card.className = 'block-card';
+                        card.style.borderColor = 'var(--accent-magic)';
+                        card.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <span style="font-size: 24px;">🧠</span>
+                                    <div>
+                                        <div style="font-size: 14px; color: var(--text-secondary);">SRS Mastery Lvl ${item.level}/5</div>
+                                        <div style="font-weight: bold; font-size: 16px;">${item.topic}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <button class="btn-primary" style="width: 100%; background: var(--accent-magic);" onclick="completeSrs('${item.id}')">Begin Revision</button>
+                        `;
+                        srsContainer.appendChild(card);
+                    });
+                } else {
+                    srsSection.style.display = 'none';
+                }
+            }
+
+            // Render Carry Forward Blocks
+            const cfContainer = document.getElementById('carry-forward-container');
+            const cfSection = document.getElementById('carry-forward-section');
+            if (db.carryForward && db.carryForward.length > 0) {
+                cfSection.style.display = 'block';
+                cfContainer.innerHTML = '';
+                db.carryForward.forEach(cf => {
+                    const card = document.createElement('div');
+                    card.className = 'block-card';
+                    card.style.borderColor = 'var(--accent-danger)';
+                    card.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <span style="font-size: 24px;">📌</span>
+                                <div>
+                                    <div style="font-size: 14px; color: var(--text-secondary);">Missed on ${cf.originalDate}</div>
+                                    <div style="font-weight: bold; font-size: 16px;">${cf.topic}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="btn-block-${cf.id}" class="btn-primary" style="width: 100%;" onclick="openSessionModal('${cf.id}', '${cf.topic}', 0, 60)">Begin Recovery</button>
+                    `;
+                    cfContainer.appendChild(card);
+                });
+            } else {
+                cfSection.style.display = 'none';
+            }
+
+            // Render Blocks
+            const isSunday = now.getDay() === 0;
+            const blocksCount = isSunday ? 3 : 4;
+            const blocksContainer = document.getElementById('today-blocks-container');
+            blocksContainer.innerHTML = '';
+
+            // Get schedule topics from localStorage (or fallback placeholders)
+            const schedule = db.schedule || {};
+            const todayTopics = schedule[now.getDay()] || [];
+
+            const todayStr = getISTDateString(now);
+            const todayHistory = db.history[todayStr] || [];
+
+            for (let i = 0; i < blocksCount; i++) {
+                let topic = todayTopics[i] || `Placeholder Topic ${i + 1}`;
+
+                // Sprint Mode Overrides
+                if (window.sprintModeActive) {
+                    if (window.sprintDaysLeft === 3) {
+                        topic = "Sprint Drill: Mixed Subjects";
+                    } else if (window.sprintDaysLeft === 2) {
+                        if (i < 2) topic = "Sprint Drill: Weak Topics";
+                    } else if (window.sprintDaysLeft === 1) {
+                        topic = "Sprint Drill: Checklist & Formula Rev";
+                        if (i === 3) continue; // Cancel block 4
+                    }
+                }
+                const timeLabel = `Block ${i + 1}`;
+                const isCompleted = todayHistory[i] === true;
+
+                const card = document.createElement('div');
+                card.className = 'block-card';
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span style="font-size: 24px;">⏱️</span>
+                            <div>
+                                <div style="font-size: 14px; color: var(--text-secondary);">${timeLabel}</div>
+                                <div style="font-weight: bold; font-size: 16px;">${topic}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="btn-block-${i}" class="btn-primary" style="width: 100%; ${isCompleted ? 'background-color: var(--accent-success);' : ''}" ${isCompleted ? 'disabled' : ''} onclick="openSessionModal(${i}, '${topic}', ${blocksCount}, 60)">
+                        ${isCompleted ? 'Completed' : 'Begin'}
+                    </button>
+                `;
+                blocksContainer.appendChild(card);
+                if (isCompleted) completedBlocks.add(i);
+            }
+        }
+
+        // Blinkit Handlers
+        function BlinkitYes() {
+            document.getElementById('blinkit-late-section').style.display = 'block';
+        }
+
+        function BlinkitNo() {
+            showToast("Block 3 scheduled for afternoon.");
+            document.getElementById('blinkit-banner').style.display = 'none';
+        }
+
+        function BlinkitLate() {
+            showToast("Time recalculated. Offer carry-forward if < 60min remaining.");
+            document.getElementById('blinkit-banner').style.display = 'none';
+        }
+
+        // Dummy Complete Block (Triggers Confetti if all done)
+        const completedBlocks = new Set();
+        function completeBlock(index, totalCount) {
+            let db = loadDB();
+            if (db) {
+                const todayStr = getISTDateString(nowIST());
+                if (!db.history[todayStr]) db.history[todayStr] = [];
+
+                if (typeof index === 'string' && index.startsWith('cf_')) {
+                    // Carry forward completion
+                    db.carryForward = db.carryForward.filter(cf => cf.id !== index);
+                } else {
+                    // Normal block completion
+                    db.history[todayStr][index] = true;
+                    completedBlocks.add(index);
+                }
+                saveDB(db);
+
+                // If today is now fully complete based on history, unlock tomorrow!
+                const isSunday = nowIST().getDay() === 0;
+                const expectedBlocks = isSunday ? 3 : 4;
+                let allDone = true;
+                for (let i = 0; i < expectedBlocks; i++) {
+                    if (!db.history[todayStr][i]) allDone = false;
+                }
+
+                if (allDone && completedBlocks.size >= expectedBlocks) {
+                    triggerConfetti();
+                }
+            }
+
+            // Update button visually
+            const btn = document.getElementById(`btn-block-${index}`);
+            if (btn) {
+                btn.innerText = 'Completed';
+                btn.style.backgroundColor = 'var(--accent-success)';
+                btn.disabled = true;
+            }
+        }
+
+        function triggerConfetti() {
+            const container = document.getElementById('global-confetti');
+            if (container) {
+                container.classList.add('active');
+                container.innerHTML = '';
+                for (let i = 0; i < 60; i++) {
+                    const conf = document.createElement('div');
+                    conf.className = 'confetti';
+                    conf.style.left = Math.random() * 100 + '%';
+                    conf.style.animationDelay = Math.random() * 2 + 's';
+                    container.appendChild(conf);
+                }
+                setTimeout(() => {
+                    container.classList.remove('active');
+                    container.innerHTML = '';
+                }, 4000);
+            }
+        }
+
+        // --- Session & Timer Logic ---
+        let timerState = {
+            intervalId: null,
+            endTime: 0,
+            pomodoroEndTime: 0,
+            isPaused: false,
+            pauseStartTime: 0,
+            durationMins: 0,
+            blockId: null,
+            blocksCount: 0,
+            topic: '',
+            pomodorosTotal: 0,
+            pomodoroCurrent: 1,
+            isBreak: false
+        };
+
+        function openSessionModal(blockId, topic, blocksCount, durationMins) {
+            const lowerTopic = topic.toLowerCase();
+            if (lowerTopic.includes("math") || lowerTopic.includes("algebra") || lowerTopic.includes("calculus") || lowerTopic.includes("trigonometry") || lowerTopic.includes("geometry")) {
+                if (confirm("Math topic detected. Start 5-min Formula Warm-up first?")) {
+                    currentFlashcardTopic = topic;
+                    flashcardIdx = 0;
+                    currentFlashcardCallback = () => openSessionModalInternal(blockId, topic, blocksCount, durationMins);
+                    renderFlashcard();
+                    document.getElementById('flashcard-overlay').style.display = 'flex';
+                    return;
+                }
+            }
+            openSessionModalInternal(blockId, topic, blocksCount, durationMins);
+        }
+
+        function openSessionModalInternal(blockId, topic, blocksCount, durationMins) {
+            timerState.blockId = blockId;
+            timerState.blocksCount = blocksCount;
+            timerState.topic = topic;
+            timerState.durationMins = durationMins || 60;
+
+            document.getElementById('session-modal-title').innerText = `Start Session`;
+            document.getElementById('session-modal-topic').innerText = topic;
+            document.getElementById('session-url').value = '';
+            document.getElementById('session-notes').value = '';
+
+            document.getElementById('session-modal').classList.add('active');
+        }
+
+        function closeSessionModal() {
+            document.getElementById('session-modal').classList.remove('active');
+        }
+
+        window.pendingQuizData = null;
+        async function fetchGeminiWithRetry(url, options) {
+            let res = await fetch(url, options);
+            if (res.status === 429) {
+                console.warn("429 Too Many Requests. Retrying in 5 seconds...");
+                await new Promise(r => setTimeout(r, 5000));
+                res = await fetch(url, options);
+                if (res.status === 429) {
+                    throw new Error("429_SECOND_FAILURE");
+                }
+            }
+            return res;
+        }
+
+        async function analyzeResource(url, topic, notes) {
+            document.getElementById('ai-analyzing-dot').style.display = 'inline-block';
+            window.pendingQuizData = null;
+
+            let promptText = `Create a 10-question multiple-choice quiz on the topic: "${topic}". `;
+
+            try {
+                if (url && (url.includes('youtube.com') || url.includes('youtu.be'))) {
+                    promptText += `Base it on this YouTube video URL: ${url}. `;
+                } else if (url) {
+                    try {
+                        const response = await fetch(url);
+                        const text = await response.text();
+                        promptText += `Base it on this text snippet (first 3000 chars): ${text.substring(0, 3000)}. `;
+                    } catch (e) {
+                        console.warn("CORS or fetch failed, using topic and notes only.");
+                        promptText += `Base it on these notes: ${notes}. `;
+                    }
+                } else if (notes) {
+                    promptText += `Base it on these notes: ${notes}. `;
+                }
+
+                promptText += `Provide exactly 10 questions. Return ONLY a valid JSON array of objects with this structure: [{"q": "Question text", "options": ["A","B","C","D"], "answer": "The exact string from options that is correct", "difficulty": "easy", "explanation": "Why this is correct"}]. Provide 'easy', 'medium', or 'hard' difficulty appropriately. Format as clean JSON.`;
+
+                // Dummy configuration placeholder if real key isn't provided
+                if (!CONFIG || !CONFIG.GEMINI_KEY || CONFIG.GEMINI_KEY.includes('GEMINI_API_KEY')) {
+                    throw new Error("Missing API Key");
+                }
+
+                const res = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${CONFIG.GEMINI_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: promptText }] }]
+                    })
+                });
+
+                if (!res.ok) throw new Error("API call failed");
+
+                const data = await res.json();
+                const jsonStr = data.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
+                window.pendingQuizData = JSON.parse(jsonStr);
+                console.log("Quiz data generated successfully!");
+            } catch (err) {
+                if (err.message === "429_SECOND_FAILURE") {
+                    showToast("AI busy, using offline questions");
+                }
+                console.error("AI Analysis failed. Will fallback to offline bank.", err);
+            } finally {
+                document.getElementById('ai-analyzing-dot').style.display = 'none';
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.createElement('div');
+            toast.innerText = msg;
+            toast.style.position = 'absolute';
+            toast.style.top = '20px';
+            toast.style.left = '50%';
+            toast.style.transform = 'translateX(-50%)';
+            toast.style.background = 'var(--accent-magic)';
+            toast.style.color = '#fff';
+            toast.style.padding = '12px 24px';
+            toast.style.borderRadius = '24px';
+            toast.style.zIndex = '5000';
+            toast.style.fontWeight = 'bold';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        function startSession() {
+            const url = document.getElementById('session-url').value;
+            const notes = document.getElementById('session-notes').value;
+
+            closeSessionModal();
+            analyzeResource(url, timerState.topic, notes);
+
+            // Calculate Pomodoros
+            timerState.pomodorosTotal = Math.max(1, Math.floor(timerState.durationMins / 30));
+            timerState.pomodoroCurrent = 1;
+            timerState.isBreak = false;
+            timerState.quizBannerShown = false;
+            timerState.padhLiyaShown = false;
+
+            // Setup times
+            const now = nowIST().getTime();
+            timerState.endTime = now + timerState.durationMins * 60 * 1000;
+            timerState.pomodoroEndTime = now + 25 * 60 * 1000;
+            timerState.isPaused = false;
+
+            // Setup UI
+            document.getElementById('timer-topic-display').innerText = timerState.topic;
+            document.getElementById('pomodoro-display').innerText = `Pomodoro ${timerState.pomodoroCurrent}/${timerState.pomodorosTotal}`;
+            document.getElementById('timer-screen-overlay').style.display = 'flex';
+            document.getElementById('mark-complete-btn').style.display = 'none';
+            document.getElementById('main-timer-display').style.color = 'var(--accent-success)';
+            document.getElementById('pause-resume-btn').innerText = 'Pause';
+
+            // Start interval
+            if (timerState.intervalId) clearInterval(timerState.intervalId);
+            timerState.intervalId = setInterval(timerTick, 1000);
+            timerTick();
+        }
+
+        function togglePause() {
+            const btn = document.getElementById('pause-resume-btn');
+            const now = nowIST().getTime();
+
+            if (timerState.isPaused) {
+                // Resume
+                const pauseDuration = now - timerState.pauseStartTime;
+                timerState.endTime += pauseDuration;
+                timerState.pomodoroEndTime += pauseDuration;
+                timerState.isPaused = false;
+                btn.innerText = 'Pause';
+            } else {
+                // Pause
+                timerState.pauseStartTime = now;
+                timerState.isPaused = true;
+                btn.innerText = 'Resume';
+            }
+        }
+
+        function skipBreak() {
+            timerState.isBreak = false;
+            document.getElementById('pomodoro-break').classList.remove('active');
+            timerState.pomodoroCurrent++;
+
+            if (timerState.pomodoroCurrent <= timerState.pomodorosTotal) {
+                document.getElementById('pomodoro-display').innerText = `Pomodoro ${timerState.pomodoroCurrent}/${timerState.pomodorosTotal}`;
+                timerState.pomodoroEndTime = nowIST().getTime() + 25 * 60 * 1000;
+            }
+        }
+
+        function delayQuiz() {
+            document.getElementById('padh-liya-modal').classList.remove('active');
+            // Allow 5 more minutes (or just let timer count to 0)
+            timerState.padhLiyaShown = true;
+        }
+
+        function timerTick() {
+            if (timerState.isPaused) return;
+
+            const now = nowIST().getTime();
+            const mainTimeLeft = timerState.endTime - now;
+
+            if (mainTimeLeft <= 0) {
+                clearInterval(timerState.intervalId);
+                document.getElementById('main-timer-display').innerText = "00:00";
+                endSession();
+                return;
+            }
+
+            // Update main display
+            const mainMins = Math.floor(mainTimeLeft / 60000);
+            const mainSecs = Math.floor((mainTimeLeft % 60000) / 1000);
+            document.getElementById('main-timer-display').innerText =
+                `${mainMins.toString().padStart(2, '0')}:${mainSecs.toString().padStart(2, '0')}`;
+
+            // Color shifts
+            const totalMs = timerState.durationMins * 60 * 1000;
+            const ratio = mainTimeLeft / totalMs;
+            const display = document.getElementById('main-timer-display');
+            if (ratio < 0.25) {
+                display.style.color = 'var(--accent-danger)'; // Red
+            } else if (ratio < 0.5) {
+                display.style.color = 'var(--accent-gold)'; // Yellow
+            } else {
+                display.style.color = 'var(--accent-success)'; // Green
+            }
+
+            // Reminders Flow
+            if (mainMins === 10 && mainSecs === 0 && !timerState.quizBannerShown) {
+                timerState.quizBannerShown = true;
+                showToast("10 mins left! Wrap up and prepare for the quiz.");
+            }
+            if (mainMins === 5 && mainSecs === 0 && !timerState.padhLiyaShown) {
+                timerState.padhLiyaShown = true;
+                document.getElementById('padh-liya-modal').classList.add('active');
+            }
+
+            // Mark complete in last 5 mins
+            if (mainMins < 5) {
+                document.getElementById('mark-complete-btn').style.display = 'block';
+            }
+
+            // Pomodoro Logic
+            const pomoTimeLeft = timerState.pomodoroEndTime - now;
+
+            if (timerState.isBreak) {
+                if (pomoTimeLeft <= 0) {
+                    skipBreak();
+                } else {
+                    const bMins = Math.floor(pomoTimeLeft / 60000);
+                    const bSecs = Math.floor((pomoTimeLeft % 60000) / 1000);
+                    document.getElementById('break-timer-display').innerText =
+                        `${bMins.toString().padStart(2, '0')}:${bSecs.toString().padStart(2, '0')}`;
+                }
+            } else {
+                if (pomoTimeLeft <= 0 && timerState.pomodoroCurrent <= timerState.pomodorosTotal) {
+                    timerState.isBreak = true;
+                    document.getElementById('pomodoro-break').classList.add('active');
+                    timerState.pomodoroEndTime = now + 5 * 60 * 1000;
+
+                    // +5 XP
+                    let db = loadDB();
+                    if (db) {
+                        addXP(db, 5);
+                        saveDB(db);
+                    }
+                }
+            }
+        }
+
+        function endSession() {
+            if (timerState.intervalId) clearInterval(timerState.intervalId);
+            document.getElementById('timer-screen-overlay').style.display = 'none';
+            document.getElementById('pomodoro-break').classList.remove('active');
+            document.getElementById('padh-liya-modal').classList.remove('active');
+
+            if (isFocusMode) toggleFocusMode();
+
+            console.log("Session Ended. Triggering quiz flow...");
+            startQuizFlow();
+        }
+
+        // --- Quiz Flow ---
+        let quizState = {
+            questions: [],
+            currentIndex: 0,
+            score: 0,
+            recentResults: []
+        };
+
+        function getFallbackBank(topic) {
+            let bank = [];
+            for (let i = 1; i <= 10; i++) {
+                let diff = (i <= 2) ? 'easy' : (i <= 6 ? 'medium' : 'hard');
+                bank.push({
+                    q: `Fallback Question ${i} about ${topic}?`,
+                    options: [`Correct Option A`, `Wrong Option B`, `Wrong Option C`, `Wrong Option D`],
+                    answer: `Correct Option A`,
+                    difficulty: diff,
+                    explanation: `This is the offline fallback explanation for question ${i}.`
+                });
+            }
+            return bank;
+        }
+
+        function startQuizFlow() {
+            document.getElementById('padh-liya-modal').classList.remove('active');
+            if (timerState.intervalId) {
+                clearInterval(timerState.intervalId);
+                document.getElementById('timer-screen-overlay').style.display = 'none';
+                if (isFocusMode) toggleFocusMode();
+            }
+
+            if (window.pendingQuizData && window.pendingQuizData.length > 0) {
+                quizState.questions = window.pendingQuizData;
+            } else {
+                quizState.questions = getFallbackBank(timerState.topic);
+            }
+
+            quizState.currentIndex = 0;
+            quizState.score = 0;
+            quizState.recentResults = [];
+
+            document.getElementById('quiz-overlay').style.display = 'flex';
+            renderQuizQuestion();
+        }
+
+        function renderQuizQuestion() {
+            if (quizState.currentIndex >= quizState.questions.length || quizState.currentIndex >= 10) {
+                showScoreCard();
+                return;
+            }
+
+            document.getElementById('quiz-progress').innerText = `Q ${quizState.currentIndex + 1}/10`;
+
+            // Adaptive Engine
+            let desiredDiff = 'easy';
+            if (quizState.currentIndex >= 2) {
+                const lastTwo = quizState.recentResults.slice(-2);
+                if (lastTwo.every(r => r === true)) desiredDiff = 'hard';
+                else if (lastTwo.every(r => r === false)) desiredDiff = 'easy';
+                else desiredDiff = 'medium';
+            }
+
+            let qIndex = -1;
+            for (let i = quizState.currentIndex; i < quizState.questions.length; i++) {
+                if (quizState.questions[i].difficulty === desiredDiff) {
+                    qIndex = i;
+                    break;
+                }
+            }
+            if (qIndex === -1) qIndex = quizState.currentIndex;
+
+            const temp = quizState.questions[quizState.currentIndex];
+            quizState.questions[quizState.currentIndex] = quizState.questions[qIndex];
+            quizState.questions[qIndex] = temp;
+
+            const q = quizState.questions[quizState.currentIndex];
+
+            document.getElementById('quiz-question-text').innerText = `[${(q.difficulty || 'easy').toUpperCase()}] ${q.q}`;
+
+            const optionsContainer = document.getElementById('quiz-options-container');
+            optionsContainer.innerHTML = '';
+
+            const shuffledOptions = [...q.options].sort(() => Math.random() - 0.5);
+
+            shuffledOptions.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-primary';
+                btn.style.background = 'var(--bg-surface-alt)';
+                btn.style.color = 'var(--text-primary)';
+                btn.style.textAlign = 'left';
+                btn.style.textTransform = 'none';
+                btn.style.minHeight = 'unset';
+                btn.innerText = opt;
+                btn.onclick = () => submitAnswer(opt, q.answer, btn);
+                optionsContainer.appendChild(btn);
+            });
+
+            document.getElementById('quiz-explanation-box').style.display = 'none';
+        }
+
+        function submitAnswer(selected, correct, btnElem) {
+            const optionsContainer = document.getElementById('quiz-options-container');
+            Array.from(optionsContainer.children).forEach(btn => {
+                btn.disabled = true;
+                if (btn.innerText === correct) {
+                    btn.style.background = 'var(--accent-success)';
+                    btn.style.color = '#fff';
+                }
+            });
+
+            const isCorrect = (selected === correct);
+            if (isCorrect) {
+                quizState.score++;
+                quizState.recentResults.push(true);
+            } else {
+                btnElem.style.background = 'var(--accent-danger)';
+                btnElem.style.color = '#fff';
+                quizState.recentResults.push(false);
+                saveToErrorJournal(quizState.questions[quizState.currentIndex], selected);
+            }
+
+            const q = quizState.questions[quizState.currentIndex];
+            document.getElementById('quiz-explanation-text').innerText = q.explanation || "No explanation provided.";
+            document.getElementById('quiz-explanation-box').style.display = 'block';
+        }
+
+        function nextQuizQuestion() {
+            quizState.currentIndex++;
+            renderQuizQuestion();
+        }
+
+        function saveToErrorJournal(q, selectedAnswer) {
+            let db = loadDB();
+            if (db) {
+                if (!db.errorJournal) db.errorJournal = [];
+                // Find subject from quest map if possible, else "General"
+                let subject = "General";
+                if (db.questMap) {
+                    db.questMap.months.forEach(m => m.weeks.forEach(w => w.topics.forEach(t => {
+                        if (t.name === timerState.topic) subject = t.subject;
+                    })));
+                }
+
+                db.errorJournal.push({
+                    date: nowIST().toISOString(),
+                    topic: timerState.topic,
+                    subject: subject,
+                    question: q.q,
+                    wrongAnswer: selectedAnswer,
+                    correctAnswer: q.answer,
+                    reviewed: false
+                });
+                saveDB(db);
+            }
+        }
+
+        function showScoreCard() {
+            document.getElementById('quiz-overlay').style.display = 'none';
+            document.getElementById('scorecard-modal').classList.add('active');
+
+            const passed = quizState.score >= 8;
+            document.getElementById('scorecard-score').innerText = `${quizState.score}/10`;
+
+            const title = passed ? 'Topic Conquered! 🏆' : 'Keep Practicing 💪';
+            document.getElementById('scorecard-title').innerText = title;
+            document.getElementById('scorecard-title').style.color = passed ? 'var(--accent-success)' : 'var(--accent-gold)';
+
+            let message = '';
+            let db = loadDB();
+            if (db) {
+                // Update Quiz History
+                if (!db.quizHistory) db.quizHistory = {};
+                if (!db.quizHistory[timerState.topic]) {
+                    // Find subject from quest map if possible, else "General"
+                    let subject = "General";
+                    if (db.questMap) {
+                        db.questMap.months.forEach(m => m.weeks.forEach(w => w.topics.forEach(t => {
+                            if (t.name === timerState.topic) subject = t.subject;
+                        })));
+                    }
+                    db.quizHistory[timerState.topic] = { attempts: 0, bestScore: 0, mastered: false, subject: subject };
+                }
+                const hist = db.quizHistory[timerState.topic];
+                hist.attempts++;
+                if (quizState.score > hist.bestScore) hist.bestScore = quizState.score;
+                if (passed) hist.mastered = true;
+            }
+
+            if (passed) {
+                message = "Excellent work! +20 XP awarded.";
+                if (db) addXP(db, 20);
+            } else {
+                message = "Topic added to SRS due for review.";
+                if (db) {
+                    if (!db.srs) db.srs = [];
+                    db.srs.push({
+                        topic: timerState.topic,
+                        dueDate: nowIST().toISOString()
+                    });
+                }
+            }
+
+            if (db) saveDB(db);
+            document.getElementById('scorecard-message').innerText = message;
+        }
+
+        function closeScorecard() {
+            document.getElementById('scorecard-modal').classList.remove('active');
+
+            let db = loadDB();
+            if (db) {
+                // Session XP Reward (50 XP for finishing block + quiz)
+                addXP(db, 50);
+                db.logs.push({
+                    date: nowIST().toISOString(),
+                    event: `Completed block & quiz: ${timerState.topic}`,
+                    xpGained: 50
+                });
+                saveDB(db);
+
+                const xpPercent = Math.min(100, ((db.player.xp || 0) / ((db.player.level || 1) * 100)) * 100);
+                document.getElementById('player-xp-fill').style.width = `${xpPercent}%`;
+            }
+
+            completeBlock(timerState.blockId, timerState.blocksCount);
+        }
+
+        let isFocusMode = false;
+        function toggleFocusMode() {
+            isFocusMode = !isFocusMode;
+            if (isFocusMode) {
+                document.getElementById('focus-dimmer').classList.add('active');
+            } else {
+                document.getElementById('focus-dimmer').classList.remove('active');
+            }
+        }
+
+        // --- Quest Map Logic ---
+        function generateDummySchedule(db) {
+            if (!db.questMap) {
+                db.questMap = {
+                    months: [
+                        { name: "July", weeks: [{ topics: [{ name: "Algebra Basics", subject: "Math", status: "mastered" }, { name: "Logic Gates", subject: "Logic", status: "mastered" }] }] },
+                        { name: "August", weeks: [{ topics: [{ name: "Set Theory", subject: "Math", status: "in-progress" }, { name: "Boolean Algebra", subject: "Logic", status: "locked" }] }] },
+                        { name: "September", weeks: [{ topics: [{ name: "Calculus", subject: "Math", status: "locked" }, { name: "Combinatorics", subject: "Logic", status: "locked" }] }] }
+                    ]
+                };
+            }
+            return db;
+        }
+
+        function renderQuestMap(db) {
+            if (!db) return;
+            db = generateDummySchedule(db); // Ensure structure exists
+
+            // 1. Hero Percentage
+            let masteredCount = 0;
+            let totalCount = 0;
+            db.questMap.months.forEach(m => {
+                m.weeks.forEach(w => {
+                    w.topics.forEach(t => {
+                        totalCount++;
+                        if (t.status === 'mastered') masteredCount++;
+                    });
+                });
+            });
+            const percent = totalCount > 0 ? Math.floor((masteredCount / totalCount) * 100) : 0;
+            document.getElementById('quest-map-hero-percent').innerText = `${percent}%`;
+
+            // 2. 60-Day Heatmap
+            const heatmapContainer = document.getElementById('heatmap-container');
+            heatmapContainer.innerHTML = '';
+            const now = nowIST();
+
+            // Generate 60 days
+            for (let i = 59; i >= 0; i--) {
+                const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+                const dateStr = getISTDateString(date);
+                const history = db.history[dateStr] || [];
+                let blocksDone = 0;
+                history.forEach(isDone => { if (isDone) blocksDone++; });
+
+                const cell = document.createElement('div');
+                cell.className = 'heatmap-cell';
+                if (blocksDone === 1) cell.classList.add('level-1');
+                else if (blocksDone === 2) cell.classList.add('level-2');
+                else if (blocksDone === 3) cell.classList.add('level-3');
+                else if (blocksDone >= 4) cell.classList.add('level-4');
+
+                cell.title = `${dateStr}: ${blocksDone} blocks completed`;
+                heatmapContainer.appendChild(cell);
+            }
+
+            // 3. 12 Month Zone Cards
+            const monthsContainer = document.getElementById('quest-map-months-container');
+            monthsContainer.innerHTML = '';
+
+            db.questMap.months.forEach((m, idx) => {
+                const card = document.createElement('div');
+                card.className = 'block-card';
+                card.style.marginBottom = '12px';
+                card.style.padding = '0 16px';
+
+                let monthMastered = 0;
+                let monthTotal = 0;
+                let weeksHtml = '';
+
+                m.weeks.forEach((w, wIdx) => {
+                    weeksHtml += `<div style="margin-bottom: 8px;"><strong style="color: var(--accent-gold); font-size: 14px;">Week ${wIdx + 1}</strong><ul style="list-style: none; padding: 0; margin: 4px 0;">`;
+                    w.topics.forEach(t => {
+                        monthTotal++;
+                        if (t.status === 'mastered') monthMastered++;
+
+                        let icon = '🔒';
+                        if (t.status === 'mastered') icon = '✅';
+                        else if (t.status === 'in-progress') icon = '🔄';
+                        else if (t.status === 'missed') icon = '❌';
+
+                        weeksHtml += `<li style="font-size: 14px; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;"><span>${icon}</span> ${t.name} <span style="font-size: 11px; color: var(--text-secondary);">(${t.subject})</span></li>`;
+                    });
+                    weeksHtml += `</ul></div>`;
+                });
+
+                const progressPct = monthTotal > 0 ? (monthMastered / monthTotal) * 100 : 0;
+                const cfCount = idx === 0 ? db.carryForward.length : 0;
+
+                card.innerHTML = `
+                    <div class="accordion-header" onclick="toggleAccordion('acc-month-${idx}')">
+                        <div style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">${m.name} ${cfCount > 0 ? `<span class="badge" style="background: var(--accent-danger); font-size: 11px;">${cfCount} 📌</span>` : ''}</h3>
+                                <span style="color: var(--text-secondary); font-size: 12px;">${Math.floor(progressPct)}%</span>
+                            </div>
+                            <div class="progress-bar"><div class="progress-fill" style="width: ${progressPct}%"></div></div>
+                        </div>
+                    </div>
+                    <div id="acc-month-${idx}" class="accordion-content">
+                        ${weeksHtml}
+                    </div>
+                `;
+                monthsContainer.appendChild(card);
+            });
+
+            // 4. Dependency Map
+            const depContainer = document.getElementById('dependency-map-container');
+            depContainer.innerHTML = '';
+
+            const depData = [
+                { name: "Algebra Basics", status: "mastered" },
+                { name: "Set Theory", status: "in-progress", reqs: "Requires: Algebra Basics (1/1)" },
+                { name: "Calculus", status: "locked", reqs: "Requires: Set Theory (0/1)" }
+            ];
+
+            const depTree = document.createElement('div');
+            depTree.className = 'dep-tree';
+
+            depData.forEach(d => {
+                const node = document.createElement('div');
+                node.className = `dep-node ${d.status}`;
+                node.innerText = d.name;
+                node.onclick = () => {
+                    if (d.reqs) showToast(d.reqs);
+                };
+                depTree.appendChild(node);
+            });
+            depContainer.appendChild(depTree);
+        }
+
+        function toggleAccordion(id) {
+            document.getElementById(id).classList.toggle('expanded');
+        }
+
+        // --- Quiz & Exam Log Logic ---
+        function switchSubTab(subTabId, btn) {
+            // Hide all sub-tabs
+            document.querySelectorAll('#tab-3 .sub-tab-content').forEach(el => el.classList.remove('active'));
+            // Remove active from buttons
+            document.querySelectorAll('#log-sub-nav .sub-nav-btn').forEach(el => el.classList.remove('active'));
+
+            // Activate target
+            document.getElementById(subTabId).classList.add('active');
+            btn.classList.add('active');
+
+            if (subTabId === 'log-quiz') renderQuizHistory();
+            else if (subTabId === 'log-exam') renderExamScores();
+            else if (subTabId === 'log-error') renderErrorJournal();
+        }
+
+        function generateDummyLogData(db) {
+            if (!db.quizHistory) {
+                db.quizHistory = {
+                    "Algebra Basics": { attempts: 3, bestScore: 9, mastered: true, subject: "Math" },
+                    "Logic Gates": { attempts: 1, bestScore: 5, mastered: false, subject: "Logic" }
+                };
+            }
+            if (!db.exams) {
+                db.exams = [
+                    { date: "2026-07-06T10:00:00Z", type: "weekly", subject: "Math", score: 60 },
+                    { date: "2026-07-13T10:00:00Z", type: "weekly", subject: "Math", score: 75 },
+                    { date: "2026-07-20T10:00:00Z", type: "weekly", subject: "Math", score: 85 },
+                    { date: "2026-07-06T10:00:00Z", type: "weekly", subject: "Logic", score: 50 },
+                    { date: "2026-07-13T10:00:00Z", type: "weekly", subject: "Logic", score: 80 }
+                ];
+            }
+            if (!db.errorJournal || db.errorJournal.length === 0) {
+                db.errorJournal = [
+                    { date: nowIST().toISOString(), topic: "Logic Gates", subject: "Logic", question: "What is NAND?", wrongAnswer: "OR + NOT", correctAnswer: "AND + NOT", reviewed: false }
+                ];
+            }
+            return db;
+        }
+
+        function renderLogTab() {
+            let db = loadDB();
+            db = generateDummyLogData(db);
+            saveDB(db);
+
+            // Render currently active sub-tab
+            const activeSub = document.querySelector('#log-sub-nav .sub-nav-btn.active').innerText;
+            if (activeSub === "Quiz History") renderQuizHistory();
+            else if (activeSub === "Exam Scores") renderExamScores();
+            else if (activeSub === "Error Journal") renderErrorJournal();
+        }
+
+        function renderQuizHistory() {
+            let db = loadDB();
+            if (!db || !db.quizHistory) return;
+
+            const filterSubj = document.getElementById('quiz-filter-subject').value;
+            const container = document.getElementById('quiz-history-container');
+            container.innerHTML = '';
+
+            Object.keys(db.quizHistory).forEach(topic => {
+                const data = db.quizHistory[topic];
+                if (filterSubj !== 'All' && data.subject !== filterSubj) return;
+
+                const card = document.createElement('div');
+                card.className = 'block-card';
+                card.style.marginBottom = '12px';
+
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h4 style="margin: 0; margin-bottom: 4px; color: var(--text-primary);">${topic} <span style="font-size: 11px; color: var(--text-secondary);">(${data.subject})</span></h4>
+                            <div style="font-size: 12px; color: var(--text-secondary);">Attempts: ${data.attempts} | Best: ${data.bestScore}/10</div>
+                        </div>
+                        ${data.mastered ? `<div class="badge" style="background: var(--accent-success); color: #fff;">Mastered ✅</div>` : `<div class="badge" style="background: var(--bg-primary);">Learning</div>`}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            if (container.innerHTML === '') container.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">No history found.</p>';
+        }
+
+        let examChartInstance = null;
+        function renderExamScores() {
+            let db = loadDB();
+            if (!db || !db.exams) return;
+
+            // 1. Render Chart
+            const ctx = document.getElementById('examChart').getContext('2d');
+            if (examChartInstance) examChartInstance.destroy();
+
+            // Group by subject
+            const subjects = ["Math", "Logic"];
+            const colors = { "Math": "#f5a623", "Logic": "#4caf50" };
+
+            let datasets = [];
+            subjects.forEach(subj => {
+                const subjExams = db.exams.filter(e => e.subject === subj).sort((a, b) => new Date(a.date) - new Date(b.date));
+                if (subjExams.length > 0) {
+                    datasets.push({
+                        label: subj,
+                        data: subjExams.map(e => e.score),
+                        borderColor: colors[subj],
+                        backgroundColor: 'transparent',
+                        tension: 0.3
+                    });
+                }
+            });
+
+            // Labels (Assuming weeks 1, 2, 3...)
+            const maxLen = Math.max(...datasets.map(d => d.data.length));
+            const labels = Array.from({ length: maxLen }, (_, i) => `W${i + 1}`);
+
+            if (window.Chart) {
+                examChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: labels, datasets: datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: '#aaa' } } },
+                        scales: {
+                            y: { min: 0, max: 100, ticks: { color: '#aaa' }, grid: { color: '#333' } },
+                            x: { ticks: { color: '#aaa' }, grid: { color: '#333' } }
+                        }
+                    }
+                });
+            }
+
+            // 2. Render Recent Exams
+            const container = document.getElementById('exam-scores-container');
+            container.innerHTML = '';
+
+            const recent = [...db.exams].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+            recent.forEach(e => {
+                const card = document.createElement('div');
+                card.className = 'block-card';
+                card.style.marginBottom = '8px';
+                card.style.display = 'flex';
+                card.style.justifyContent = 'space-between';
+                card.style.alignItems = 'center';
+
+                const dStr = new Date(e.date).toLocaleDateString();
+                card.innerHTML = `
+                    <div>
+                        <div style="font-weight: bold;">${e.subject} ${e.type === 'weekly' ? 'Weekly' : 'Buffer'} Exam</div>
+                        <div style="font-size: 11px; color: var(--text-secondary);">${dStr}</div>
+                    </div>
+                    <div style="font-size: 24px; font-weight: bold; color: ${e.score >= 80 ? 'var(--accent-success)' : 'var(--accent-gold)'}">${e.score}%</div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderErrorJournal() {
+            let db = loadDB();
+            if (!db || !db.errorJournal) return;
+
+            const filterSubj = document.getElementById('error-filter-subject').value;
+            const filterUnrev = document.getElementById('error-filter-unreviewed').checked;
+
+            let filtered = db.errorJournal;
+            if (filterSubj !== 'All') filtered = filtered.filter(e => e.subject === filterSubj);
+            if (filterUnrev) filtered = filtered.filter(e => !e.reviewed);
+
+            // Compute Top Stats
+            let unrevCount = db.errorJournal.filter(e => !e.reviewed).length;
+            let topicCounts = {};
+            db.errorJournal.forEach(e => {
+                if (!topicCounts[e.topic]) topicCounts[e.topic] = 0;
+                topicCounts[e.topic]++;
+            });
+            let maxErrTopic = "None";
+            let maxCount = 0;
+            for (let t in topicCounts) {
+                if (topicCounts[t] > maxCount) { maxCount = topicCounts[t]; maxErrTopic = t; }
+            }
+
+            document.getElementById('error-journal-stats').innerHTML = `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span>Unreviewed Total:</span>
+                    <strong style="color: var(--accent-danger);">${unrevCount}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span>Most Errored Topic:</span>
+                    <strong style="color: var(--accent-gold);">${maxErrTopic} (${maxCount} err)</strong>
+                </div>
+            `;
+
+            const container = document.getElementById('error-journal-container');
+            container.innerHTML = '';
+
+            // Render backwards (newest first)
+            for (let i = filtered.length - 1; i >= 0; i--) {
+                const entry = filtered[i];
+                // Find actual index in original array for marking reviewed
+                const actualIndex = db.errorJournal.indexOf(entry);
+
+                const card = document.createElement('div');
+                card.className = 'block-card';
+                card.style.marginBottom = '12px';
+                card.style.opacity = entry.reviewed ? '0.6' : '1';
+
+                card.innerHTML = `
+                    <div style="font-size: 11px; color: var(--accent-gold); margin-bottom: 4px;">${entry.topic} (${entry.subject})</div>
+                    <div style="font-size: 14px; margin-bottom: 12px; line-height: 1.4;">${entry.question}</div>
+                    
+                    <div style="background: rgba(255,59,48,0.1); border-left: 3px solid var(--accent-danger); padding: 8px; margin-bottom: 8px; font-size: 13px;">
+                        <span style="color: var(--accent-danger);">❌ You answered:</span><br>
+                        ${entry.wrongAnswer || 'Unknown'}
+                    </div>
+                    
+                    <div style="background: rgba(52,199,89,0.1); border-left: 3px solid var(--accent-success); padding: 8px; margin-bottom: 12px; font-size: 13px;">
+                        <span style="color: var(--accent-success);">✅ Correct Answer:</span><br>
+                        ${entry.correctAnswer}
+                    </div>
+                    
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
+                        <input type="checkbox" ${entry.reviewed ? 'checked' : ''} onchange="markErrorReviewed(${actualIndex}, this.checked)">
+                        Mark as Reviewed
+                    </label>
+                `;
+                container.appendChild(card);
+            }
+            if (container.innerHTML === '') container.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">No errors found for current filters.</p>';
+        }
+
+        function markErrorReviewed(index, isReviewed) {
+            let db = loadDB();
+            if (db && db.errorJournal && db.errorJournal[index]) {
+                db.errorJournal[index].reviewed = isReviewed;
+                saveDB(db);
+                // Re-render
+                renderErrorJournal();
+            }
+        }
+
+        function exportErrorJournalPDF() {
+            let db = loadDB();
+            if (!db || !db.errorJournal) return;
+
+            const unreviewed = db.errorJournal.filter(e => !e.reviewed);
+            if (unreviewed.length === 0) {
+                alert("No unreviewed errors to export.");
+                return;
+            }
+
+            if (window.jspdf) {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                doc.setFontSize(18);
+                doc.text("Error Journal Study Sheet", 10, 20);
+
+                doc.setFontSize(10);
+                let y = 30;
+
+                unreviewed.forEach((e, idx) => {
+                    if (y > 270) { doc.addPage(); y = 20; }
+
+                    doc.setFont(undefined, 'bold');
+                    doc.text(`${idx + 1}. [${e.subject} - ${e.topic}]`, 10, y);
+                    y += 6;
+
+                    doc.setFont(undefined, 'normal');
+                    const splitQ = doc.splitTextToSize(e.question, 180);
+                    doc.text(splitQ, 10, y);
+                    y += (splitQ.length * 5) + 2;
+
+                    doc.setTextColor(255, 0, 0); // Red
+                    const splitWrong = doc.splitTextToSize(`Wrong: ${e.wrongAnswer || 'Unknown'}`, 180);
+                    doc.text(splitWrong, 10, y);
+                    y += (splitWrong.length * 5) + 2;
+
+                    doc.setTextColor(0, 128, 0); // Green
+                    const splitCorrect = doc.splitTextToSize(`Correct: ${e.correctAnswer}`, 180);
+                    doc.text(splitCorrect, 10, y);
+                    y += (splitCorrect.length * 5) + 6;
+
+                    doc.setTextColor(0, 0, 0); // Reset
+                });
+
+                doc.save("MCA_Quest_Error_Journal.pdf");
+            } else {
+                alert("jsPDF library not loaded.");
+            }
+        }
+
+        // --- Stats & Coach Logic ---
+        function renderStatsTab() {
+            let db = loadDB();
+            if (!db) return;
+
+            // Generate dummy dates if missing
+            if (!db.examDates) {
+                const now = nowIST();
+                db.examDates = [
+                    { name: "NIMCET", date: new Date(now.getTime() + 100 * 24 * 60 * 60 * 1000).toISOString() },
+                    { name: "CUET PG", date: new Date(now.getTime() + 45 * 24 * 60 * 60 * 1000).toISOString() },
+                    { name: "MAH-MCA", date: new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString() },
+                    { name: "BITIC", date: new Date(now.getTime() + 120 * 24 * 60 * 60 * 1000).toISOString() },
+                    { name: "OJEE", date: new Date(now.getTime() + 200 * 24 * 60 * 60 * 1000).toISOString() }
+                ];
+                saveDB(db);
+            }
+
+            // 1. Level Ring
+            const level = db.player.level || 1;
+            document.getElementById('stats-level-text').innerText = level;
+
+            const maxLevel = 50;
+            const levelPct = Math.min(100, (level / maxLevel) * 100);
+
+            const ring = document.getElementById('level-ring-fill');
+            const c = Math.PI * (65 * 2); // 408.4
+            const offset = ((100 - levelPct) / 100) * c;
+            setTimeout(() => { ring.style.strokeDashoffset = offset; }, 100);
+
+            // 2. Top Stats
+            document.getElementById('stats-total-xp').innerText = db.player.xp || 0;
+
+            // Study Hrs: roughly 30 mins per completed block in history
+            let blocksCompleted = 0;
+            if (db.history) {
+                Object.values(db.history).forEach(day => {
+                    day.forEach(b => { if (b) blocksCompleted++; });
+                });
+            }
+            const hrs = (blocksCompleted * 0.5).toFixed(1);
+            document.getElementById('stats-study-hrs').innerText = hrs + 'h';
+            document.getElementById('stats-debt').innerText = db.carryForward ? db.carryForward.length : 0;
+
+            // 3. RPG Stats
+            let mathMastered = 0, mathTotal = 0;
+            let logicMastered = 0, logicTotal = 0;
+
+            if (db.questMap) {
+                db.questMap.months.forEach(m => m.weeks.forEach(w => w.topics.forEach(t => {
+                    if (t.subject === 'Math') { mathTotal++; if (t.status === 'mastered') mathMastered++; }
+                    if (t.subject === 'Logic') { logicTotal++; if (t.status === 'mastered') logicMastered++; }
+                })));
+            }
+
+            const strPct = mathTotal ? Math.floor((mathMastered / mathTotal) * 100) : 0;
+            const intPct = logicTotal ? Math.floor((logicMastered / logicTotal) * 100) : 0;
+            const wisPct = db.player.level * 2; // Dummy WIS
+            const agiPct = db.player.xp > 0 ? Math.min(100, Math.floor(db.player.xp / 100)) : 0; // Dummy AGI
+
+            setTimeout(() => {
+                document.getElementById('stat-str-fill').style.width = strPct + '%';
+                document.getElementById('stat-str-val').innerText = strPct + '%';
+                document.getElementById('stat-int-fill').style.width = intPct + '%';
+                document.getElementById('stat-int-val').innerText = intPct + '%';
+                document.getElementById('stat-wis-fill').style.width = wisPct + '%';
+                document.getElementById('stat-wis-val').innerText = wisPct + '%';
+                document.getElementById('stat-agi-fill').style.width = agiPct + '%';
+                document.getElementById('stat-agi-val').innerText = agiPct + '%';
+            }, 100);
+
+            // 4. SRS Tracking
+            let srsMastered = 0, srsTotal = 0;
+            if (db.quizHistory) {
+                Object.values(db.quizHistory).forEach(v => {
+                    srsTotal++;
+                    if (v.mastered) srsMastered++;
+                });
+            }
+            document.getElementById('stats-srs-mastered').innerText = `${srsMastered}/${srsTotal}`;
+            document.getElementById('stats-srs-queue').innerText = `Queue: ${db.srs ? db.srs.length : 0}`;
+
+            // Focus Areas (find lowest score topic)
+            let lowestScore = 10;
+            let weakTopic = "None yet. Keep practicing!";
+            if (db.quizHistory) {
+                Object.keys(db.quizHistory).forEach(k => {
+                    if (db.quizHistory[k].bestScore < lowestScore) {
+                        lowestScore = db.quizHistory[k].bestScore;
+                        weakTopic = k;
+                    }
+                });
+            }
+            document.getElementById('stats-weak-topics').innerText = weakTopic !== "None" ? `Weakest Topic: ${weakTopic} (${lowestScore}/10)` : weakTopic;
+            window.currentWeakTopic = weakTopic; // for AI detector
+
+            // 5. Exam Countdowns
+            const examCont = document.getElementById('stats-exams-container');
+            examCont.innerHTML = '';
+            const now = nowIST();
+
+            db.examDates.sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(ex => {
+                const exDate = new Date(ex.date);
+                const diffTime = exDate - now;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                let color = "var(--accent-success)";
+                if (diffDays < 30) color = "var(--accent-danger)";
+                else if (diffDays < 90) color = "var(--accent-gold)";
+
+                const box = document.createElement('div');
+                box.style.minWidth = '100px';
+                box.style.background = 'var(--bg-surface-alt)';
+                box.style.padding = '12px';
+                box.style.borderRadius = '8px';
+                box.style.textAlign = 'center';
+                box.style.borderTop = `3px solid ${color}`;
+
+                box.innerHTML = `
+                    <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px;">${ex.name}</div>
+                    <div style="font-size: 20px; font-weight: bold; color: ${color};">${diffDays}d</div>
+                `;
+                examCont.appendChild(box);
+            });
+
+            // 6. Achievements
+            if (!db.player.achievements) {
+                db.player.achievements = {
+                    "First Blood": true, "Week Warrior": false, "Iron Scholar": true,
+                    "Quiz Master": false, "Perfect Week": false, "Perfectionist": false,
+                    "Carry King": false, "Comeback Kid": true, "Math Slayer": false, "SQL Ninja": false
+                };
+                saveDB(db);
+            }
+
+            const achCont = document.getElementById('stats-achievements-container');
+            achCont.innerHTML = '';
+            const badgesMap = {
+                "First Blood": "🩸", "Week Warrior": "⚔️", "Iron Scholar": "🛡️",
+                "Quiz Master": "🧠", "Perfect Week": "🌟", "Perfectionist": "🎯",
+                "Carry King": "👑", "Comeback Kid": "🔥", "Math Slayer": "➗", "SQL Ninja": "💾"
+            };
+
+            Object.keys(db.player.achievements).forEach(name => {
+                const unlocked = db.player.achievements[name];
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <div class="achievement-badge ${unlocked ? 'unlocked' : ''}" title="${name}">${badgesMap[name] || '🏆'}</div>
+                    <div style="font-size: 10px; color: ${unlocked ? 'var(--text-primary)' : 'var(--text-secondary)'}; line-height: 1.2;">${name}</div>
+                `;
+                achCont.appendChild(div);
+            });
+        }
+
+        // --- AI Intergrations ---
+        async function analyzeWeakAreas() {
+            const btn = event.target;
+            btn.innerText = "Analyzing...";
+            btn.disabled = true;
+
+            try {
+                const topic = window.currentWeakTopic || "General";
+                let prompt = `I am a student preparing for my MCA entrance exams. My weakest topic right now is ${topic}. Give me a 3-step action plan in Hinglish to improve it. Keep it very short, bullet points, max 100 words. Speak like an RPG mentor.`;
+
+                const response = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${CONFIG.GEMINI_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const text = data.candidates[0].content.parts[0].text;
+                    alert("🧙 Mentor Says:nn" + text);
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Failed to analyze weak areas.");
+            } finally {
+                btn.innerText = "Analyze";
+                btn.disabled = false;
+            }
+        }
+
+        function openCoachModal() {
+            document.getElementById('coach-modal').classList.add('active');
+        }
+
+        function closeCoachModal() {
+            document.getElementById('coach-modal').classList.remove('active');
+        }
+
+        async function sendCoachMessage() {
+            const input = document.getElementById('coach-input');
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            const chatCont = document.getElementById('coach-chat-container');
+
+            // Append User Msg
+            chatCont.innerHTML += `<div class="ai-chat-bubble user">${msg}</div>`;
+            const loadingBubbleId = "coach-loading-" + Date.now();
+            chatCont.innerHTML += `<div id="${loadingBubbleId}" class="ai-chat-bubble coach" style="opacity: 0.7;">Thinking...</div>`;
+            input.value = '';
+            chatCont.scrollTop = chatCont.scrollHeight;
+
+            // Call Gemini
+            try {
+                let db = loadDB();
+                let xp = db ? db.player.xp : 0;
+                let sysPrompt = `You are an RPG AI Coach for an MCA entrance exam student. The student has ${xp} XP. Respond to their message in Hinglish. Be extremely encouraging, use RPG terms (quests, level up, grinding). Max 50 words.`;
+
+                const response = await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${CONFIG.GEMINI_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: sysPrompt + "\\nStudent says: " + msg }] }] })
+                });
+
+                document.getElementById(loadingBubbleId).remove();
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const text = data.candidates[0].content.parts[0].text;
+                    chatCont.innerHTML += `<div class="ai-chat-bubble coach">${text}</div>`;
+                    chatCont.scrollTop = chatCont.scrollHeight;
+                }
+            } catch (e) {
+                const loadingBubble = document.getElementById(loadingBubbleId);
+                if (loadingBubble) loadingBubble.remove();
+                chatCont.innerHTML += `<div class="ai-chat-bubble coach">Sorry warrior, my magic connection failed. Try again!</div>`;
+                chatCont.scrollTop = chatCont.scrollHeight;
+            }
+        }
+
+        // --- Settings & Data Logic ---
+        function renderSettingsTab() {
+            let db = loadDB();
+            if (!db) return;
+
+            // Preferences
+            if (!db.settings) db.settings = { focusMode: false, theme: "dark", blinkitTime: "07:30", geminiKey: "", tgToken: "", tgChatId: "" };
+
+            document.getElementById('settings-blinkit-time').value = db.settings.blinkitTime || "07:30";
+            document.getElementById('settings-gemini-key').value = db.settings.geminiKey || "";
+            document.getElementById('settings-tg-token').value = db.settings.tgToken || "";
+            document.getElementById('settings-tg-chatid').value = db.settings.tgChatId || "";
+
+            // Exam Centers
+            if (!db.examCenters) {
+                db.examCenters = {
+                    "NIMCET": { name: "", address: "" },
+                    "CUET PG": { name: "", address: "" },
+                    "MAH-MCA": { name: "", address: "" },
+                    "BITIC": { name: "", address: "" },
+                    "OJEE": { name: "", address: "" }
+                };
+            }
+
+            const examCont = document.getElementById('settings-exams-container');
+            examCont.innerHTML = '';
+
+            Object.keys(db.examCenters).forEach(ex => {
+                const center = db.examCenters[ex];
+                const div = document.createElement('div');
+                div.style.marginBottom = '16px';
+                div.innerHTML = `
+                    <label style="display: block; margin-bottom: 4px; color: var(--accent-gold); font-weight: bold;">${ex}</label>
+                    <input type="text" id="center-name-${ex}" placeholder="Center Name" class="settings-input" style="margin-bottom: 8px;" value="${center.name}">
+                    <textarea id="center-address-${ex}" placeholder="Address" class="settings-input" style="height: 60px; resize: none; margin-bottom: 8px;">${center.address}</textarea>
+                    <button class="btn-primary" style="width: 100%; background: var(--bg-surface-alt); border: 1px solid var(--border-main); color: var(--text-primary);" onclick="saveExamCenter('${ex}')">Save ${ex}</button>
+                `;
+                examCont.appendChild(div);
+            });
+        }
+
+        function togglePassword(id) {
+            const el = document.getElementById(id);
+            el.type = el.type === "password" ? "text" : "password";
+        }
+
+        function saveSettings() {
+            let db = loadDB();
+            if (!db) return;
+
+            if (!db.settings) db.settings = {};
+            db.settings.blinkitTime = document.getElementById('settings-blinkit-time').value;
+            db.settings.geminiKey = document.getElementById('settings-gemini-key').value;
+            db.settings.tgToken = document.getElementById('settings-tg-token').value;
+            db.settings.tgChatId = document.getElementById('settings-tg-chatid').value;
+
+            // Update live config
+            CONFIG.GEMINI_KEY = db.settings.geminiKey || 'YOUR_GEMINI_API_KEY';
+            CONFIG.TELEGRAM_TOKEN = db.settings.tgToken || 'YOUR_TELEGRAM_BOT_TOKEN';
+            CONFIG.TELEGRAM_CHAT_ID = db.settings.tgChatId || 'YOUR_TELEGRAM_CHAT_ID';
+
+            saveDB(db);
+            alert("Preferences saved successfully!");
+        }
+
+        function saveExamCenter(ex) {
+            let db = loadDB();
+            if (!db) return;
+
+            if (!db.examCenters) db.examCenters = {};
+            if (!db.examCenters[ex]) db.examCenters[ex] = { name: "", address: "" };
+
+            db.examCenters[ex].name = document.getElementById(`center-name-${ex}`).value;
+            db.examCenters[ex].address = document.getElementById(`center-address-${ex}`).value;
+
+            saveDB(db);
+            alert(`${ex} center saved!`);
+        }
+
+        function handleDocxUpload() {
+            const input = document.getElementById('settings-docx-upload');
+            if (input.files.length === 0) {
+                alert("Select a .docx file first.");
+                return;
+            }
+
+            const file = input.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function (event) {
+                const arrayBuffer = event.target.result;
+                if (!window.mammoth) {
+                    alert("Mammoth.js not loaded.");
+                    return;
+                }
+
+                mammoth.extractRawText({ arrayBuffer: arrayBuffer })
+                    .then(function (result) {
+                        const text = result.value;
+                        parseScheduleText(text);
+                    })
+                    .catch(function (err) {
+                        console.error(err);
+                        alert("Error parsing DOCX.");
+                    });
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parseScheduleText(text) {
+            let db = loadDB();
+            if (!db) return;
+
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+            let questMap = { months: [] };
+            let currentMonth = null;
+            let currentWeek = null;
+
+            lines.forEach(line => {
+                if (line.toLowerCase().startsWith('month')) {
+                    currentMonth = { name: line, progress: 0, weeks: [] };
+                    questMap.months.push(currentMonth);
+                } else if (line.toLowerCase().startsWith('week') && currentMonth) {
+                    currentWeek = { id: line, topics: [] };
+                    currentMonth.weeks.push(currentWeek);
+                } else if (currentWeek && line.length > 3) {
+                    let subject = "General";
+                    const lLower = line.toLowerCase();
+                    if (lLower.includes('math') || lLower.includes('algebra') || lLower.includes('calculus')) subject = "Math";
+                    else if (lLower.includes('logic') || lLower.includes('reason')) subject = "Logic";
+                    else if (lLower.includes('computer') || lLower.includes('sql') || lLower.includes('os')) subject = "Computer";
+                    else if (lLower.includes('english')) subject = "English";
+
+                    currentWeek.topics.push({
+                        name: line.substring(0, 50),
+                        subject: subject,
+                        status: "locked"
+                    });
+                }
+            });
+
+            if (questMap.months.length > 0) {
+                db.questMap = questMap;
+                saveDB(db);
+                alert(`Schedule loaded! Found ${questMap.months.length} months.`);
+            } else {
+                alert("No schedule data found. Ensure DOCX has 'Month X' and 'Week Y' headers.");
+            }
+        }
+
+        function exportData() {
+            let db = loadDB();
+            if (!db) return;
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "MCA_Quest_Backup.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        function importData() {
+            const input = document.getElementById('settings-json-upload');
+            if (input.files.length === 0) {
+                alert("Select a .json file first.");
+                return;
+            }
+
+            const file = input.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function (event) {
+                try {
+                    const json = JSON.parse(event.target.result);
+                    if (json && json.player && json.settings) {
+                        saveDB(json);
+                        alert("Data imported successfully. Reloading...");
+                        window.location.reload();
+                    } else {
+                        alert("Invalid backup file format.");
+                    }
+                } catch (e) {
+                    alert("Failed to parse JSON file.");
+                }
+            };
+
+            reader.readAsText(file);
+        }
+
+        function resetData() {
+            if (confirm("WARNING! This will delete all your progress, settings, and quest map forever. Are you sure?")) {
+                if (confirm("Are you REALLY sure? There is no undo.")) {
+                    localStorage.removeItem(CONFIG.DB_KEY);
+                    alert("Data wiped. Reloading...");
+                    window.location.reload();
+                }
+            }
+        }
+
+        // Network Status Indicator
+        window.addEventListener('online', updateNetworkStatus);
+        window.addEventListener('offline', updateNetworkStatus);
+
+        function updateNetworkStatus() {
+            const dot = document.getElementById('network-dot');
+            const text = document.getElementById('network-text');
+            if (navigator.onLine) {
+                dot.style.backgroundColor = 'var(--accent-success)';
+                text.innerText = 'Online';
+                text.style.color = 'var(--accent-success)';
+            } else {
+                dot.style.backgroundColor = 'var(--nav-inactive)';
+                text.innerText = 'Offline';
+                text.style.color = 'var(--nav-inactive)';
+            }
+        }
+
+
+        // --- Alerts & Scheduling ---
+        async function sendTelegramMessage(text) {
+            if (!CONFIG.TELEGRAM_TOKEN || !CONFIG.TELEGRAM_CHAT_ID || CONFIG.TELEGRAM_TOKEN.includes('YOUR_')) return;
+            try {
+                const url = `https://api.telegram.org/bot${CONFIG.TELEGRAM_TOKEN}/sendMessage`;
+                await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: CONFIG.TELEGRAM_CHAT_ID, text: text })
+                });
+            } catch (e) {
+                console.error("Telegram error:", e);
+            }
+        }
+
+        function showGlobalBanner(text) {
+            document.getElementById('global-banner-text').innerText = text;
+            document.getElementById('global-banner').style.display = 'block';
+        }
+
+        function scheduleReminders(db) {
+            const now = nowIST();
+
+            // 1. 10 PM Night Recap
+            let recapTime = new Date(now);
+            recapTime.setHours(22, 0, 0, 0);
+            if (recapTime < now) recapTime.setDate(recapTime.getDate() + 1);
+            setTimeout(() => {
+                sendTelegramMessage("Night Recap: Have you completed all your blocks for today? The quest awaits!");
+            }, recapTime - now);
+
+            // 2. Sunday 9 PM Weekly Digest
+            let digestTime = new Date(now);
+            digestTime.setHours(21, 0, 0, 0);
+            const daysToSunday = 7 - digestTime.getDay();
+            if (daysToSunday === 7 && digestTime > now) {
+                // Today is Sunday and it's before 9 PM
+            } else {
+                digestTime.setDate(digestTime.getDate() + (daysToSunday === 7 ? 0 : daysToSunday));
+            }
+            setTimeout(() => {
+                sendTelegramMessage("Weekly Digest: Prepare for tomorrow's weekly challenges!");
+            }, digestTime - now);
+
+            // 3. Block Start Warnings (Mocking based on typical times)
+            const blockStarts = [9, 12, 15, 18];
+            blockStarts.forEach(hour => {
+                let blockTime = new Date(now);
+                blockTime.setHours(hour, 0, 0, 0);
+                const warningTime = new Date(blockTime.getTime() - (5 * 60 * 1000));
+
+                if (warningTime > now) {
+                    setTimeout(() => {
+                        sendTelegramMessage(`Your study block starts in 5 minutes!`);
+                        showGlobalBanner(`Your study block starts in 5 minutes!`);
+                    }, warningTime - now);
+                }
+            });
+        }
+
+        function checkRegistrationAlerts(db) {
+            if (!db || !db.examCenters) return;
+            const now = nowIST();
+
+            // Simulate mock dates based on examCenters keys.
+            // Ideally dates should be stored in db.examCenters itself.
+            const exams = Object.keys(db.examCenters).map((key, index) => {
+                let d = new Date(now);
+                d.setDate(d.getDate() + (index + 1) * 30); // Mock dates in the future
+                return { name: key, date: d };
+            });
+
+            // We use db.examDates for Sprint Mode as well. Let's persist it if not exists.
+            if (!db.examDates) {
+                db.examDates = exams;
+                saveDB(db);
+            }
+
+            db.examDates.forEach(ex => {
+                const exDate = new Date(ex.date);
+                const diffDays = Math.ceil((exDate - now) / (1000 * 60 * 60 * 24));
+
+                if (diffDays === 65) {
+                    showGlobalBanner(`Registration for ${ex.name} opens in 5 days!`);
+                    sendTelegramMessage(`Reminder: ${ex.name} registration opens in 5 days.`);
+                }
+
+                if (diffDays === 40) {
+                    showGlobalBanner(`URGENT: Registration for ${ex.name} closes in 10 days!`);
+                    sendTelegramMessage(`URGENT: ${ex.name} registration closes in 10 days!`);
+                }
+            });
+        }
+
+        function checkSprintMode(db) {
+            if (!db || !db.examDates) return;
+            const now = nowIST();
+
+            const sortedExams = [...db.examDates].sort((a, b) => new Date(a.date) - new Date(b.date));
+            const closest = sortedExams.find(ex => new Date(ex.date) >= now);
+            if (!closest) return;
+
+            const exDate = new Date(closest.date);
+            const daysLeft = Math.ceil((exDate - now) / (1000 * 60 * 60 * 24));
+
+            window.sprintModeActive = false;
+            window.sprintDaysLeft = daysLeft;
+
+            if (daysLeft === 0) {
+                document.getElementById('exam-day-name').innerText = closest.name;
+                document.getElementById('exam-day-overlay').style.display = 'flex';
+            } else if (daysLeft <= 3 && daysLeft > 0) {
+                window.sprintModeActive = true;
+                showGlobalBanner(`SPRINT MODE ACTIVATED: ${daysLeft} days until ${closest.name}!`);
+            }
+        }
+
+
+        // --- Flashcards ---
+        const mathFormulas = [
+            { q: "Quadratic Formula", a: "x = (-b ± √(b² - 4ac)) / 2a" },
+            { q: "Area of Circle", a: "A = πr²" },
+            { q: "Pythagorean Theorem", a: "a² + b² = c²" },
+            { q: "Logarithm Power Rule", a: "log_b(x^y) = y * log_b(x)" },
+            { q: "Sine Rule", a: "a/sinA = b/sinB = c/sinC" },
+            { q: "Cosine Rule", a: "c² = a² + b² - 2ab*cosC" },
+            { q: "Arithmetic Sequence nth term", a: "a_n = a_1 + (n-1)d" },
+            { q: "Geometric Sequence nth term", a: "a_n = a_1 * r^(n-1)" }
+        ];
+
+        let flashcardIdx = 0;
+        let currentFlashcardTopic = "";
+        let currentFlashcardCallback = null;
+
+        function renderFlashcard() {
+            document.getElementById('active-flashcard').classList.remove('is-flipped');
+            setTimeout(() => {
+                const fc = mathFormulas[flashcardIdx % mathFormulas.length];
+                document.getElementById('fc-front-text').innerText = fc.q;
+                document.getElementById('fc-back-text').innerText = fc.a;
+                document.getElementById('flashcard-counter').innerText = `${(flashcardIdx % mathFormulas.length) + 1} / ${mathFormulas.length}`;
+            }, 150);
+        }
+
+        function nextFlashcard() { flashcardIdx++; renderFlashcard(); }
+        function prevFlashcard() { if (flashcardIdx > 0) flashcardIdx--; renderFlashcard(); }
+
+        function starFlashcard() {
+            const fc = mathFormulas[flashcardIdx % mathFormulas.length];
+            let starred = JSON.parse(localStorage.getItem('mcaquest_starred_formulas') || '[]');
+            if (!starred.find(s => s.q === fc.q)) {
+                starred.push(fc);
+                localStorage.setItem('mcaquest_starred_formulas', JSON.stringify(starred));
+                alert("Formula starred and saved!");
+            } else alert("Formula already starred!");
+        }
+
+        function endFlashcards() {
+            document.getElementById('flashcard-overlay').style.display = 'none';
+            if (currentFlashcardCallback) currentFlashcardCallback();
+        }
+
+        let touchstartX = 0;
+        let touchendX = 0;
+        document.getElementById('flashcard-scene').addEventListener('touchstart', e => { touchstartX = e.changedTouches[0].screenX; }, { passive: true });
+        document.getElementById('flashcard-scene').addEventListener('touchend', e => {
+            touchendX = e.changedTouches[0].screenX;
+            if (touchendX < touchstartX - 50) nextFlashcard();
+            if (touchendX > touchstartX + 50) prevFlashcard();
+        }, { passive: true });
+
+
+        // --- Buffer Exam ---
+        let examTimeLeft = 7200;
+        let examTimerInterval;
+        let currentExamQ = 1;
+        let examMockQuestions = Array.from({ length: 100 }, (_, i) => ({ id: i + 1, q: `Mock Buffer Question ${i + 1}`, subj: i < 25 ? 'Math' : i < 50 ? 'Logic' : i < 75 ? 'Computer' : 'English', status: 'unvisited' }));
+
+        function startBufferExam() {
+            document.getElementById('buffer-exam-overlay').style.display = 'flex';
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(e => console.log(e));
+            }
+            document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+            examTimeLeft = 7200;
+            clearInterval(examTimerInterval);
+            examTimerInterval = setInterval(() => {
+                examTimeLeft--;
+                const m = Math.floor(examTimeLeft / 60);
+                const s = examTimeLeft % 60;
+                document.getElementById('exam-timer').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+                if (examTimeLeft <= 0) autoSubmitExam();
+            }, 1000);
+
+            renderExamQ();
+            renderExamPalette();
+        }
+
+        function handleFullscreenChange() {
+            if (!document.fullscreenElement && document.getElementById('buffer-exam-overlay').style.display === 'flex') {
+                alert("WARNING: You exited fullscreen during a buffer exam. Please return to fullscreen or submit immediately.");
+            }
+        }
+
+        function renderExamQ() {
+            const qData = examMockQuestions[currentExamQ - 1];
+            document.getElementById('exam-q-number').innerText = `Question ${currentExamQ}`;
+            document.getElementById('exam-subject-label').innerText = qData.subj;
+            document.getElementById('exam-q-text').innerText = qData.q;
+
+            document.getElementById('exam-options-container').innerHTML = `
+                <button class="btn-primary" style="background: #fff; color: #000; text-align: left;" onclick="selectExamOpt(this)">A. Option A</button>
+                <button class="btn-primary" style="background: #fff; color: #000; text-align: left;" onclick="selectExamOpt(this)">B. Option B</button>
+                <button class="btn-primary" style="background: #fff; color: #000; text-align: left;" onclick="selectExamOpt(this)">C. Option C</button>
+                <button class="btn-primary" style="background: #fff; color: #000; text-align: left;" onclick="selectExamOpt(this)">D. Option D</button>
+            `;
+            if (qData.status === 'unvisited') { qData.status = 'visited'; renderExamPalette(); }
+        }
+
+        function selectExamOpt(btn) {
+            const btns = document.getElementById('exam-options-container').querySelectorAll('button');
+            btns.forEach(b => { b.style.background = '#fff'; b.style.color = '#000'; });
+            btn.style.background = '#3498db'; btn.style.color = '#fff';
+            examMockQuestions[currentExamQ - 1].status = 'answered';
+        }
+
+        function markExamForReview() {
+            examMockQuestions[currentExamQ - 1].status = 'review';
+            renderExamPalette();
+        }
+
+        function nextExamQ() {
+            if (currentExamQ < examMockQuestions.length) currentExamQ++;
+            renderExamQ(); renderExamPalette();
+        }
+
+        function prevExamQ() {
+            if (currentExamQ > 1) currentExamQ--;
+            renderExamQ(); renderExamPalette();
+        }
+
+        function renderExamPalette() {
+            const grid = document.getElementById('exam-palette-grid');
+            grid.innerHTML = '';
+            examMockQuestions.forEach((q) => {
+                const btn = document.createElement('button');
+                btn.innerText = q.id;
+                btn.style.padding = '8px';
+                btn.style.borderRadius = '50%';
+                btn.style.border = '1px solid #ccc';
+                btn.style.fontWeight = 'bold';
+
+                if (q.status === 'answered') btn.style.background = '#2ecc71';
+                else if (q.status === 'review') btn.style.background = '#e74c3c';
+                else if (q.status === 'visited') btn.style.background = '#95a5a6';
+                else btn.style.background = '#fff';
+
+                btn.onclick = () => { currentExamQ = q.id; renderExamQ(); document.getElementById('exam-palette-modal').style.display = 'none'; };
+                grid.appendChild(btn);
+            });
+        }
+
+        function autoSubmitExam() {
+            clearInterval(examTimerInterval);
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
+
+            document.getElementById('exam-palette-modal').style.display = 'none';
+            document.getElementById('buffer-exam-overlay').style.display = 'none';
+
+            const db = loadDB();
+            if (db) {
+                db.history = db.history || {};
+                db.history.bufferExams = db.history.bufferExams || [];
+                db.history.bufferExams.push({ date: getISTDateString(nowIST()), score: Math.floor(Math.random() * 100) });
+                saveDB(db);
+            }
+            alert("Buffer Exam Submitted! Score saved to history.");
+
+            if (confirm("Download Monthly PDF Report?")) generatePDFReport();
+        }
+
+        // --- Monthly PDF Report ---
+        function generatePDFReport() {
+            const db = loadDB();
+            if (!db) return;
+            document.getElementById('pdf-level').innerText = db.player.level || 1;
+            document.getElementById('pdf-xp').innerText = db.player.xp || 0;
+            document.getElementById('pdf-streak').innerText = db.player.streak || 0;
+            document.getElementById('pdf-date').innerText = nowIST().toLocaleDateString();
+
+            document.getElementById('pdf-math-val').innerText = '80%';
+            document.getElementById('pdf-math-bar').style.width = '80%';
+
+            const template = document.getElementById('pdf-report-template');
+            template.style.top = '0px';
+            template.style.left = '0px';
+            template.style.display = 'block';
+
+            if (window.html2canvas && window.jspdf) {
+                window.html2canvas(template).then(canvas => {
+                    const imgData = canvas.toDataURL('image/png');
+                    const pdf = new window.jspdf.jsPDF();
+                    const imgProps = pdf.getImageProperties(imgData);
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                    pdf.save('MCAQuest_MonthlyReport.pdf');
+
+                    template.style.top = '-10000px';
+                    template.style.display = 'none';
+                });
+            } else {
+                alert("Libraries (html2canvas/jsPDF) not found. Report data generated internally.");
+                template.style.top = '-10000px';
+                template.style.display = 'none';
+            }
+        }
+
+        // --- Peer Challenge Logic ---
+        function checkPeerChallenge() {
+            const params = new URLSearchParams(window.location.search);
+            const challengeCode = params.get('challenge');
+            const topic = params.get('topic');
+            if (challengeCode && topic) {
+                alert(`Challenge received! Code: ${challengeCode}, Topic: ${topic}\nEntering Challenge Mode...`);
+                setTimeout(() => {
+                    const mockScore = 80;
+                    const b64 = btoa(`score=${mockScore}&code=${challengeCode}`);
+                    alert(`Challenge Complete! Share this Result String back to your peer:\\n${b64}`);
+                }, 2000);
+            }
+        }
+
+        // --- SRS Logic ---
+        function completeSrs(id) {
+            let srsList = [];
+            try { srsList = JSON.parse(localStorage.getItem('mcaquest_srs')) || []; } catch (e) { }
+            const itemIndex = srsList.findIndex(i => i.id === id);
+            if (itemIndex > -1) {
+                const item = srsList[itemIndex];
+                item.level++;
+
+                // Basic spacing progression
+                const intervals = [1, 3, 7, 14, 30];
+                const daysToAdd = intervals[Math.min(item.level - 1, intervals.length - 1)];
+                let nextDate = nowIST();
+                nextDate.setDate(nextDate.getDate() + daysToAdd);
+                item.nextReviewDate = getISTDateString(nextDate);
+
+                if (item.level >= 5) {
+                    alert(`SRS Mastered: ${item.topic}!\\n+15 XP Earned!`);
+                    const db = loadDB();
+                    if (db) {
+                        addXP(db, 15);
+                        saveDB(db);
+                    }
+                } else {
+                    alert(`SRS Level Up! Next review on ${item.nextReviewDate}`);
+                }
+
+                localStorage.setItem('mcaquest_srs', JSON.stringify(srsList));
+                renderToday(loadDB());
+            }
+        }
+
+
+        // App init on DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', () => {
+            const db = initLocalStorage();
+            updateNetworkStatus();
+            processDailyRollover(db);
+            checkOnboarding(db);
+
+            // New Modules
+            checkRegistrationAlerts(db);
+            checkSprintMode(db);
+            scheduleReminders(db);
+            checkPeerChallenge();
+
+            renderToday(db);
+        });
+    </script>
+
+    <!-- Service worker registration at bottom -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registered with scope:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('ServiceWorker registration failed:', error);
+                    });
+            });
+        }
+    </script>
+</body>
+
+</html>
