@@ -1,4 +1,3 @@
-// Service Worker Shell
 const urlsToCache = [
     './',
     './index.html',
